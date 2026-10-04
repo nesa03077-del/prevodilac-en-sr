@@ -30,28 +30,34 @@ export function supportsSynthesis(win) {
 }
 
 /**
+ * Lista glasova; neki pregledači je pune tek posle prvog poziva, pa se čeka voiceschanged.
+ * @param {any} synth
+ * @param {number} waitMs
+ */
+export async function loadSynthVoices(synth, waitMs = 1500) {
+  const now = synth.getVoices();
+  if (now.length > 0) return now;
+  await new Promise((resolve) => {
+    let timer = null;
+    const done = () => {
+      clearTimeout(timer);
+      synth.removeEventListener?.('voiceschanged', done);
+      resolve();
+    };
+    timer = setTimeout(done, waitMs);
+    synth.addEventListener?.('voiceschanged', done);
+  });
+  return synth.getVoices();
+}
+
+/**
  * @param {{ synth: any, Utterance: new (text: string) => any, waitVoicesMs?: number }} options
  */
 export function createSpeaker({ synth, Utterance, waitVoicesMs = 1500 }) {
   let chain = Promise.resolve();
   let epoch = 0;
 
-  async function loadVoices() {
-    const now = synth.getVoices();
-    if (now.length > 0) return now;
-    // Glasovi se u nekim pregledačima učitavaju tek posle prvog poziva.
-    await new Promise((resolve) => {
-      let timer = null;
-      const done = () => {
-        clearTimeout(timer);
-        synth.removeEventListener?.('voiceschanged', done);
-        resolve();
-      };
-      timer = setTimeout(done, waitVoicesMs);
-      synth.addEventListener?.('voiceschanged', done);
-    });
-    return synth.getVoices();
-  }
+  const loadVoices = () => loadSynthVoices(synth, waitVoicesMs);
 
   async function speakNow(text, lang, myEpoch) {
     const voices = await loadVoices();

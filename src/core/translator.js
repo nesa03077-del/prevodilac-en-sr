@@ -14,6 +14,8 @@ const MAX_TOKENS = 16000;
 // Ako model odbije zahtev, server ga sam ponovi na preporučenom rezervnom modelu.
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
+const nowMs = () => globalThis.performance?.now?.() ?? Date.now();
+
 /** Greška sa kodom koji UI prevodi u poruku za korisnika. */
 export class TranslationError extends Error {
   /**
@@ -100,6 +102,8 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
     if (signal?.aborted) throw new TranslationError('aborted', ERROR_MESSAGES.aborted);
 
     let raw = '';
+    const startedAt = nowMs();
+    let firstTokenMs = null;
     try {
       const info = getModelInfo(model);
       const params = {
@@ -117,6 +121,7 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
 
       for await (const event of stream) {
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          firstTokenMs ??= nowMs() - startedAt;
           raw += event.delta.text;
           onText?.(cleanOutput(raw, to));
         }
@@ -128,7 +133,13 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
       }
       const result = cleanOutput(raw, to);
       if (!result) throw new TranslationError('empty', ERROR_MESSAGES.empty);
-      return { text: result, model: final.model, stopReason: final.stop_reason };
+      return {
+        text: result,
+        model: final.model,
+        stopReason: final.stop_reason,
+        firstTokenMs: Math.round(firstTokenMs ?? 0),
+        totalMs: Math.round(nowMs() - startedAt),
+      };
     } catch (err) {
       if (signal?.aborted) throw new TranslationError('aborted', ERROR_MESSAGES.aborted, err);
       throw toTranslationError(err);

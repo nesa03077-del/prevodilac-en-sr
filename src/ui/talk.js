@@ -38,9 +38,11 @@ function withNumbers(tag, className, text) {
  *   setSpeak: (value: boolean) => void,
  *   onNeedKey: () => void,
  *   onMiniChange?: (active: boolean) => void,
+ *   onReport?: (item: object) => void,
+ *   onMetric?: (metric: object) => void,
  * }} options
  */
-export function initTalk({ getTranslator, getSpeak, setSpeak, onNeedKey, onMiniChange = () => {} }) {
+export function initTalk({ getTranslator, getSpeak, setSpeak, onNeedKey, onMiniChange = () => {}, onReport = () => {}, onMetric = () => {} }) {
   const el = {
     root: $('talking'),
     unsupported: $('talk-unsupported'),
@@ -90,6 +92,15 @@ export function initTalk({ getTranslator, getSpeak, setSpeak, onNeedKey, onMiniC
       err.className = 'err';
       err.textContent = item.error;
       li.append(err);
+    }
+
+    if (item.status === 'done' && !live) {
+      const report = document.createElement('button');
+      report.type = 'button';
+      report.className = 'report ghost small';
+      report.dataset.id = String(item.id);
+      report.textContent = 'Prijavi grešku';
+      li.append(report);
     }
 
     // Provera prevodom nazad
@@ -220,6 +231,7 @@ export function initTalk({ getTranslator, getSpeak, setSpeak, onNeedKey, onMiniC
       : null,
     getSpeak: () => getSpeak(),
     onChange: render,
+    onMetric,
   });
 
   function toggleSpeaker(lang) {
@@ -237,8 +249,16 @@ export function initTalk({ getTranslator, getSpeak, setSpeak, onNeedKey, onMiniC
   for (const btn of el.buttons) btn.addEventListener('click', () => toggleSpeaker(btn.dataset.lang));
 
   el.log.addEventListener('click', (e) => {
-    const btn = e.target.closest?.('button.verify');
-    if (btn) conv.verify(Number(btn.dataset.id));
+    const verify = e.target.closest?.('button.verify');
+    if (verify) {
+      conv.verify(Number(verify.dataset.id));
+      return;
+    }
+    const report = e.target.closest?.('button.report');
+    if (report) {
+      const item = conv.getState().items.find((i) => i.id === Number(report.dataset.id));
+      if (item) onReport(item);
+    }
   });
 
   // ----- prečice: 1 = engleski govori, 2 = srpski govori, Esc = stop -----

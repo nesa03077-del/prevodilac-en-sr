@@ -93,12 +93,35 @@ iznad ostalih programa, podaci smeju van firme. Detalji i pravila: skil `prevodi
   pozivaoca iz slušalica (za to treba virtuelni audio kabl i plaćeno prepoznavanje govora);
   Firefox nema prepoznavanje govora ni mali prozor
 
-## [ ] Korak 5 - Objava i prva upotreba u poslu
+## [x] Korak 5a - Alati za prvu upotrebu u poslu
 
-- Uključiti GitHub Pages (Settings -> Pages -> Source: GitHub Actions) i otvoriti HTTPS adresu
-- Pregled fraza i rečnika od strane maternjeg govornika koji vozi u SAD
-- `npm run smoke` sa pravim ključem; izmeriti vreme do prvog dela prevoda; po potrebi Sonnet 5.5
-- Pilot u pravom poslu, beleženje grešaka koje dispečer primeti (svaka ide u `smoke-cases.js`)
+- Provera uređaja (Podešavanja): HTTPS, internet, prepoznavanje govora, dozvola i uređaj za
+  mikrofon, srpski i engleski glas, mali prozor, ekran budan, instalacija i probni prevod sa
+  merenjem; svaka stavka ima objašnjenje šta da se uradi (`diagnostics.js`)
+- Merenje brzine u pravoj upotrebi: medijana i 90. percentil za prvi deo i ceo prevod, udeo
+  preuzetih prevoda (`metrics.js`); prikazuje se u Podešavanjima
+- Prijava greške jednim klikom ispod svakog prevoda (vrsta greške, kako treba da glasi, napomena),
+  čuva se samo na uređaju, izvoz u JSON; `scripts/reports-to-cases.mjs` pravi kostur novog
+  slučaja za `smoke-cases.js` (`reports.js`)
+- `PILOT.md`: uputstvo za dispečera (pre smene, tokom smene, prijavljivanje grešaka, šta ne radi)
+- `docs/pregled-za-govornika.md`: spisak fraza i izraza za maternjeg govornika, pravi se iz koda
+  (`npm run review-sheet`), test proverava da se ne razilazi sa kodom
+- Provera: 214 testova i 162 provere u Chromium-u
+- GitHub Actions: instalacija, testovi i gradnja prolaze u CI; korak `configure-pages` pada jer
+  GitHub Pages nije uključen u repou (vidi 5b)
+
+## [ ] Korak 5b - Pilot (traži ljude)
+
+Ovo ne može da uradi program, nego vlasnik repoa, dispečer i maternji govornik:
+
+- Uključiti GitHub Pages: Settings -> Pages -> Source: GitHub Actions, pa pokrenuti workflow
+  "Objavi aplikaciju" (Actions -> Run workflow); adresa: https://nesa03077-del.github.io/prevodilac-en-sr/
+- Maternji govornik popunjava `docs/pregled-za-govornika.md`; ispravke se unose u `phrases.js` i `prompt.js`
+- `ANTHROPIC_API_KEY=... npm run smoke` (19 slučajeva, 7 kamionskih); proveriti vreme do prvog dela
+- Dispečer radi po `PILOT.md` nekoliko smena; izvozi prijave; svaka prijava postaje test, pa tek onda
+  izmena prompta
+- Odluka posle pilota: da li je potrebno i prepoznavanje glasa pozivaoca iz slušalica (virtuelni audio
+  kabl i plaćeno prepoznavanje govora) ili je mikrofon dovoljan
 
 ## [ ] Korak 6 - Android aplikacija (po potrebi)
 

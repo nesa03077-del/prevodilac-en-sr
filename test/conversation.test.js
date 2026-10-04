@@ -425,3 +425,52 @@ describe('dispečerske mogućnosti', () => {
     expect(calls[0].context).toEqual(['Where are you?']);
   });
 });
+
+describe('merenje brzine u razgovoru', () => {
+  function withMetrics(opts = {}) {
+    const metrics = [];
+    const translator = {
+      translate: vi.fn(async ({ text, to }) => ({ text: `[${to}] ${text}`, model: 'claude-opus-5-5', firstTokenMs: 420, totalMs: 880 })),
+    };
+    let handlers;
+    const conv = createConversation({
+      getTranslator: () => translator,
+      createRecognizer: (h) => {
+        handlers = h;
+        return { start() {}, stop() {}, suspend() {}, resume() {}, dispose() {} };
+      },
+      getSpeak: () => false,
+      interimDebounceMs: 5,
+      onMetric: (m) => metrics.push(m),
+      ...opts,
+    });
+    return { conv, metrics, h: () => handlers };
+  }
+
+  it('svaki prevod javlja vreme do prvog dela i ukupno vreme', async () => {
+    const { conv, metrics, h } = withMetrics();
+    conv.startListening('en');
+    h().onFinal('hello there');
+    await vi.waitFor(() => expect(metrics).toHaveLength(1));
+    expect(metrics[0]).toEqual({ firstTokenMs: 420, totalMs: 880, model: 'claude-opus-5-5', reused: false });
+  });
+
+  it('prevod preuzet iz prevoda uživo se beleži kao preuzet', async () => {
+    const { conv, metrics, h } = withMetrics();
+    conv.startListening('en');
+    h().onInterim('where are you');
+    await vi.waitFor(() => expect(conv.getState().interimTranslation).toBe('[sr] where are you'));
+    metrics.length = 0; // prevod uživo je pomoćni, ne računa se
+    h().onFinal('where are you');
+    expect(metrics).toEqual([{ firstTokenMs: 0, totalMs: 0, model: '', reused: true }]);
+  });
+
+  it('greška prevoda ne beleži brzinu', async () => {
+    const translator = { translate: vi.fn(async () => { throw new TranslationError('network', 'Nema veze.'); }) };
+    const { conv, metrics, h } = withMetrics({ getTranslator: () => translator });
+    conv.startListening('en');
+    h().onFinal('hello');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('error'));
+    expect(metrics).toEqual([]);
+  });
+});

@@ -56,6 +56,20 @@ Zato se uvek vidi i izvorni tekst, brojevi su istaknuti, a razlike se prijavljuj
 - Sigurnosna politika (CSP) u završnoj verziji dozvoljava vezu samo ka api.anthropic.com. Zato
   stranica ne sme sama da `fetch`-uje svoje fajlove; test to čita spolja.
 
+## Prvi dani u poslu (pilot)
+
+- `PILOT.md` je uputstvo za dispečera; menja se zajedno sa ponašanjem aplikacije.
+- Provera uređaja (`src/core/diagnostics.js`): nova mogućnost od koje aplikacija zavisi dobija
+  svoju stavku u proveri, sa objašnjenjem šta korisnik da uradi.
+- Merenje brzine (`src/core/metrics.js`): koristiti stvarne brojke iz Podešavanja pre nego što se
+  menja model ili prompt zbog brzine.
+- Prijava greške (`src/core/reports.js`): **svaka prijavljena greška postaje slučaj u
+  `scripts/smoke-cases.js` pre izmene prompta** (`node scripts/reports-to-cases.mjs prijave.json`).
+- `docs/pregled-za-govornika.md` se pravi komandom `npm run review-sheet`; test pada ako se fajl
+  razilazi sa `phrases.js` ili `TRUCKING_TERMS` u `prompt.js`, pa ga posle izmene fraza ili izraza
+  treba osvežiti.
+- Podaci (prijave, merenja) ostaju samo u localStorage uređaja, nikad se ne šalju sami.
+
 ## Objava
 
 `.github/workflows/pages.yml` gradi i objavljuje na GitHub Pages (HTTPS, potreban za mikrofon

@@ -4,8 +4,11 @@
 import { describeDirection, oppositeMode } from '../core/direction.js';
 import { resolveDirection } from '../core/detect.js';
 import { createLiveSession } from '../core/live.js';
+import { runDeviceChecks, summarizeChecks } from '../core/diagnostics.js';
 import { DOMAINS } from '../core/domains.js';
+import { createMetricsStore, describeMetrics } from '../core/metrics.js';
 import { MODELS } from '../core/models.js';
+import { REPORT_KINDS, createReportStore } from '../core/reports.js';
 import {
   DEFAULT_SETTINGS,
   createSettingsStore,
@@ -46,6 +49,23 @@ const el = {
   talkSlot: $('talk-slot'),
   net: $('net'),
   domainList: $('domain-list'),
+  toast: $('toast'),
+  checkBtn: $('device-check-btn'),
+  checkSummary: $('device-summary'),
+  checkResults: $('device-results'),
+  metricsText: $('metrics-text'),
+  metricsClear: $('metrics-clear'),
+  reportsText: $('reports-text'),
+  reportsExport: $('reports-export'),
+  reportsClear: $('reports-clear'),
+  reportDialog: $('report-dialog'),
+  reportForm: $('report-form'),
+  reportSource: $('report-source'),
+  reportTranslation: $('report-translation'),
+  reportKinds: $('report-kinds'),
+  reportCorrection: $('report-correction'),
+  reportNote: $('report-note'),
+  reportCancel: $('report-cancel'),
 };
 
 function getStorage() {
@@ -57,6 +77,8 @@ function getStorage() {
 }
 
 const store = createSettingsStore(getStorage());
+const reportStore = createReportStore(getStorage());
+const metricsStore = createMetricsStore(getStorage());
 let settings = store.load();
 let engine = null; // { session, translator } kad postoji ključ
 let talk = null; // ekran razgovora (pravi se pri pokretanju)
@@ -90,6 +112,17 @@ for (const radio of el.viewRadios) {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) talk?.stop();
 });
+
+// ---------- kratka poruka (potvrda) ----------
+
+let toastTimer = null;
+
+function toast(text) {
+  el.toast.textContent = text;
+  el.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.toast.hidden = true), 3500);
+}
 
 // ---------- obaveštenja ----------
 
@@ -284,6 +317,126 @@ el.copy.addEventListener('click', async () => {
 
 // ---------- podešavanja ----------
 
+function renderStats() {
+  el.metricsText.textContent = describeMetrics(metricsStore.summary());
+  el.metricsClear.disabled = metricsStore.list().length === 0;
+  const n = reportStore.count;
+  el.reportsText.textContent = n
+    ? `Sačuvano prijava: ${n}. Izvezite ih i pošaljite programeru, da svaka postane novi test.`
+    : 'Još nema prijava. Dugme "Prijavi grešku" je ispod svakog prevoda u razgovoru.';
+  el.reportsExport.disabled = n === 0;
+  el.reportsClear.disabled = n === 0;
+}
+
+const STATUS_LABELS = { ok: 'U redu', warn: 'Napomena', fail: 'Problem', info: 'Informacija' };
+
+async function runCheck() {
+  el.checkBtn.disabled = true;
+  el.checkBtn.textContent = 'Proveravam…';
+  el.checkResults.replaceChildren();
+  el.checkSummary.hidden = true;
+  try {
+    const results = await runDeviceChecks({ getTranslator: () => engine?.translator ?? null });
+    el.checkResults.replaceChildren(
+      ...results.map((r) => {
+        const li = document.createElement('li');
+        li.className = `check-row ${r.status}`;
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = STATUS_LABELS[r.status];
+        const box = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = r.label;
+        const detail = document.createElement('span');
+        detail.textContent = r.detail;
+        box.append(title, detail);
+        li.append(badge, box);
+        return li;
+      }),
+    );
+    el.checkSummary.textContent = summarizeChecks(results).text;
+    el.checkSummary.hidden = false;
+  } finally {
+    el.checkBtn.disabled = false;
+    el.checkBtn.textContent = 'Proveri ponovo';
+  }
+}
+
+el.checkBtn.addEventListener('click', runCheck);
+
+el.metricsClear.addEventListener('click', () => {
+  metricsStore.clear();
+  renderStats();
+});
+
+el.reportsClear.addEventListener('click', () => {
+  reportStore.clear();
+  renderStats();
+});
+
+el.reportsExport.addEventListener('click', () => {
+  const blob = new Blob([reportStore.exportJson()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `prevodilac-prijave-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+
+// ---------- prijava greške u prevodu ----------
+
+let reportItem = null;
+
+function renderReportKinds() {
+  el.reportKinds.replaceChildren(
+    ...REPORT_KINDS.map((k, i) => {
+      const label = radioCard({ name: 'report-kind', value: k.id, title: k.label, hint: '' });
+      label.querySelector('span').remove();
+      label.querySelector('input').checked = i === 0;
+      return label;
+    }),
+  );
+}
+
+function openReport(item) {
+  reportItem = item;
+  el.reportSource.textContent = item.source;
+  el.reportTranslation.textContent = item.translation;
+  el.reportCorrection.value = '';
+  el.reportNote.value = '';
+  renderReportKinds();
+  if (!el.reportDialog.open) el.reportDialog.showModal();
+  el.reportCorrection.focus();
+}
+
+el.reportCancel.addEventListener('click', () => el.reportDialog.close());
+el.reportDialog.addEventListener('click', (e) => {
+  if (e.target === el.reportDialog) el.reportDialog.close();
+});
+el.reportForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!reportItem) return;
+  const saved = reportStore.add({
+    from: reportItem.from,
+    to: reportItem.to,
+    source: reportItem.source,
+    translation: reportItem.translation,
+    fixed: reportItem.fixed,
+    domain: settings.domain,
+    model: settings.model,
+    kind: el.reportKinds.querySelector('input:checked')?.value,
+    correction: el.reportCorrection.value,
+    note: el.reportNote.value,
+  });
+  el.reportDialog.close();
+  reportItem = null;
+  toast(saved ? `Prijava je sačuvana (ukupno ${reportStore.count}).` : 'Prijava nije sačuvana: pregledač ne dozvoljava čuvanje.');
+  renderStats();
+});
+
 let forgetArmed = false;
 
 function radioCard({ name, value, title, hint }) {
@@ -346,6 +499,7 @@ function openSettings() {
   for (const input of el.modelList.querySelectorAll('input')) input.checked = input.value === settings.model;
   for (const input of el.domainList.querySelectorAll('input')) input.checked = input.value === settings.domain;
   el.forget.hidden = !settings.apiKey;
+  renderStats();
   resetForgetButton();
   if (!el.dialog.open) el.dialog.showModal();
   el.apiKey.focus();
@@ -436,6 +590,8 @@ talk = initTalk({
     showNoKeyNotice();
     openSettings();
   },
+  onReport: openReport,
+  onMetric: (m) => metricsStore.add(m),
 });
 renderView();
 

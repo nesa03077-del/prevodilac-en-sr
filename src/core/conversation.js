@@ -31,6 +31,7 @@ export const NO_KEY_MESSAGE = 'Za prevod je potreban Anthropic API ključ.';
  *   maxContext?: number,
  *   interimDebounceMs?: number,
  *   onChange?: (state: object) => void,
+ *   onMetric?: (metric: { firstTokenMs: number|null, totalMs: number, model: string, reused: boolean }) => void,
  * }} options
  */
 export function createConversation({
@@ -41,6 +42,7 @@ export function createConversation({
   maxContext = 6,
   interimDebounceMs = 500,
   onChange = () => {},
+  onMetric = () => {},
 }) {
   let nextId = 1;
   let epoch = 0; // raste pri brisanju razgovora; stare stavke više ne izgovaraju
@@ -184,6 +186,7 @@ export function createConversation({
     let translated;
     if (reuse) {
       item.reused = true;
+      onMetric({ firstTokenMs: 0, totalMs: 0, model: '', reused: true });
       translated = Promise.resolve(markDone(item, reuse));
     } else {
       emit();
@@ -201,7 +204,10 @@ export function createConversation({
           })
         : Promise.reject(new TranslationError('auth', NO_KEY_MESSAGE));
       translated = work.then(
-        (r) => markDone(item, r.text),
+        (r) => {
+          onMetric({ firstTokenMs: r.firstTokenMs ?? null, totalMs: r.totalMs ?? 0, model: r.model ?? '', reused: false });
+          return markDone(item, r.text);
+        },
         (err) => {
           item.status = 'error';
           item.error = err?.message || ERROR_MESSAGES.unknown;

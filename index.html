@@ -113,6 +113,29 @@
         <div id="model-list"></div>
       </fieldset>
 
+      <section class="field" aria-labelledby="check-title">
+        <h3 id="check-title">Provera uređaja</h3>
+        <p class="help">Proverava mikrofon, glasove, vezu i brzinu jednog probnog prevoda. Preporučeno pre prve smene.</p>
+        <button type="button" id="device-check-btn" class="ghost">Proveri uređaj</button>
+        <p id="device-summary" class="help" role="status" hidden></p>
+        <ul id="device-results" class="checks"></ul>
+      </section>
+
+      <section class="field" aria-labelledby="speed-title">
+        <h3 id="speed-title">Brzina prevoda</h3>
+        <p id="metrics-text" class="help"></p>
+        <div class="actions"><button type="button" id="metrics-clear" class="ghost small">Obriši merenja</button></div>
+      </section>
+
+      <section class="field" aria-labelledby="reports-title">
+        <h3 id="reports-title">Prijave grešaka</h3>
+        <p id="reports-text" class="help"></p>
+        <div class="actions">
+          <button type="button" id="reports-export" class="ghost small">Izvezi (JSON)</button>
+          <button type="button" id="reports-clear" class="ghost small">Obriši prijave</button>
+        </div>
+      </section>
+
       <p class="help" id="storage-warning" hidden>Ovaj pregledač ne dozvoljava čuvanje podešavanja. Važe samo dok je stranica otvorena.</p>
 
       <div class="actions">
@@ -123,6 +146,36 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="report-dialog" aria-labelledby="report-title">
+    <form id="report-form" novalidate>
+      <h2 id="report-title">Prijavi grešku u prevodu</h2>
+      <div class="report-pair">
+        <span class="who">Izgovoreno</span><p id="report-source"></p>
+        <span class="who">Prevod</span><p id="report-translation"></p>
+      </div>
+      <fieldset class="field models">
+        <legend>Šta nije u redu?</legend>
+        <div id="report-kinds"></div>
+      </fieldset>
+      <div class="field">
+        <label for="report-correction">Kako treba da glasi (nije obavezno)</label>
+        <textarea id="report-correction" rows="3" class="plain"></textarea>
+      </div>
+      <div class="field">
+        <label for="report-note">Napomena (nije obavezno)</label>
+        <input type="text" id="report-note" autocomplete="off">
+        <p class="help">Prijava se čuva samo na ovom računaru. Izvozi se iz podešavanja.</p>
+      </div>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button type="button" id="report-cancel" class="ghost">Otkaži</button>
+        <button type="submit" class="primary">Sačuvaj prijavu</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script type="module" src="./src/ui/main.js"></script>
 </body>

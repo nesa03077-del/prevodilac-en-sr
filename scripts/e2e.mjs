@@ -578,6 +578,92 @@ try {
     await t.context.close();
   }
 
+  console.log('18. Provera uređaja, merenje brzine, prijave grešaka');
+  {
+    const FAKE_MIC = `
+      Object.defineProperty(navigator, 'mediaDevices', { value: { enumerateDevices: async () => [{ kind: 'audioinput', label: '' }] }, configurable: true });
+    `;
+    apiCalls.length = 0;
+    const t = await talkPage({}, { view: 'talk' });
+    await t.context.addInitScript(FAKE_MIC);
+    await t.context.grantPermissions(['microphone', 'clipboard-read', 'clipboard-write']);
+    await t.page.reload();
+    const p = t.page;
+    const until = (fn, arg) => p.waitForFunction(fn, arg, { timeout: 6000 }).then(() => true, () => false);
+
+    // provera uređaja
+    await p.click('#settings-btn');
+    check('stavke za proveru, brzinu i prijave su u podešavanjima', (await p.locator('#device-check-btn').isVisible()) && (await p.locator('#metrics-text').isVisible()) && (await p.locator('#reports-text').isVisible()));
+    await p.click('#device-check-btn');
+    check('provera uređaja daje listu', await until(() => document.querySelectorAll('#device-results .check-row').length >= 10));
+    const rows = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll('#device-results .check-row')].map((r) => [r.querySelector('strong').textContent, r.className.replace('check-row ', '')])));
+    check('nijedna stavka nije problem', !Object.values(rows).includes('fail'), JSON.stringify(rows));
+    check('srpski glas je pronađen', rows['Srpski glas'] === 'ok', JSON.stringify(rows));
+    check('probni prevod radi', rows['Probni prevod'] === 'ok', JSON.stringify(rows));
+    check('rezime je napisan', /Sve (radi|bitno radi)/.test(await text(p, '#device-summary')));
+    check('dugme nudi ponovnu proveru', (await text(p, '#device-check-btn')) === 'Proveri ponovo');
+    await p.locator('#device-check-btn').scrollIntoViewIfNeeded();
+    await p.screenshot({ path: path.join(shotsDir, 'provera-uredjaja.png') });
+    await p.click('#settings-cancel');
+
+    // brzina: prazno pa prvi prevod
+    await p.click('#settings-btn');
+    check('pre prvog razgovora nema merenja', (await text(p, '#metrics-text')).includes('Još nema'));
+    check('merenja se ne mogu brisati kad ih nema', await p.locator('#metrics-clear').isDisabled());
+    await p.click('#settings-cancel');
+
+    // razgovor: prevod, merenje, prijava
+    await p.keyboard.press('1');
+    await p.evaluate(() => window.__emit([['Where are you right now', true]]));
+    check('prevod stiže', await until(() => document.querySelector('.turn:not(.fixed) .tr')?.textContent === 'Zdravo svete'));
+    await until(() => !window.__speaking && window.__active() === 1);
+    await p.click('#settings-btn');
+    const metricsText = await text(p, '#metrics-text');
+    check('brzina prevoda je izmerena', /\d+ prevoda/.test(metricsText) && metricsText.includes('medijana'), metricsText);
+    await p.click('#settings-cancel');
+
+    // prijava greške
+    await p.click('.turn:not(.fixed) .report');
+    check('dijalog za prijavu pokazuje izvorni tekst i prevod', (await p.locator('#report-dialog').evaluate((d) => d.open)) && (await text(p, '#report-source')) === 'Where are you right now' && (await text(p, '#report-translation')) === 'Zdravo svete');
+    check('ponuđene su vrste greške', (await p.locator('#report-kinds input').count()) === 5);
+    await p.check('#report-kinds input[value=number]');
+    await p.screenshot({ path: path.join(shotsDir, 'prijava-greske.png') });
+    await p.fill('#report-correction', 'Gde si trenutno?');
+    await p.fill('#report-note', 'dispečer je tražio kraće');
+    await p.click('#report-form button[type=submit]');
+    check('potvrda o prijavi', (await text(p, '#toast')).includes('Prijava je sačuvana (ukupno 1)'));
+    check('dijalog se zatvara', !(await p.locator('#report-dialog').evaluate((d) => d.open)));
+
+    // prijava gotove fraze takođe radi
+    await p.click('.phrase[data-phrase=where]');
+    await until(() => document.querySelector('.turn.fixed .report'));
+    check('i gotova fraza može da se prijavi', (await p.locator('.turn.fixed .report').count()) === 1);
+
+    // izvoz
+    await p.click('#settings-btn');
+    check('podešavanja pokazuju broj prijava', (await text(p, '#reports-text')).includes('Sačuvano prijava: 1'));
+    const [download] = await Promise.all([p.waitForEvent('download'), p.click('#reports-export')]);
+    const fs2 = await import('node:fs');
+    const exported = JSON.parse(fs2.readFileSync(await download.path(), 'utf8'));
+    check('izvoz ima ime sa datumom', /^prevodilac-prijave-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename()), download.suggestedFilename());
+    check('izvezena prijava ima sve podatke', exported.reports.length === 1 && exported.reports[0].kind === 'number' && exported.reports[0].correction === 'Gde si trenutno?' && exported.reports[0].source === 'Where are you right now' && exported.reports[0].domain === 'trucking' && exported.reports[0].note === 'dispečer je tražio kraće');
+    await p.click('#reports-clear');
+    check('brisanje prijava', (await text(p, '#reports-text')).includes('Još nema prijava') && (await p.locator('#reports-export').isDisabled()));
+    await p.click('#metrics-clear');
+    check('brisanje merenja', (await text(p, '#metrics-text')).includes('Još nema'));
+    check('nema grešaka u konzoli (prvi dani)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+
+    // loš uređaj: nema govora ni ključa
+    const bad = await talkPage({}, { speech: NO_SPEECH, key: false });
+    await bad.page.click('#device-check-btn');
+    await bad.page.waitForFunction(() => document.querySelectorAll('#device-results .check-row').length >= 10, null, { timeout: 8000 });
+    const badRows = await bad.page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#device-results .check-row')].map((r) => [r.querySelector('strong').textContent, r.className.replace('check-row ', '')])));
+    check('bez govora i ključa provera prijavljuje probleme', badRows['Prepoznavanje govora'] === 'fail' && badRows['Probni prevod'] === 'fail', JSON.stringify(badRows));
+    check('rezime kaže koliko je problema', /problem/.test(await text(bad.page, '#device-summary')));
+    await bad.context.close();
+  }
+
   // ===== 12. Snimci ekrana =====
   console.log('12. Snimci ekrana');
   const sizes = [

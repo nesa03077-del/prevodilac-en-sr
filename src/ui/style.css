@@ -183,8 +183,8 @@ dialog {
   border-radius: var(--radius); background: var(--panel); color: var(--fg);
 }
 dialog::backdrop { background: rgb(8 12 16 / 0.55); }
-#settings-form { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; }
-#settings-form h2 { font-size: 1.125rem; }
+#settings-form, #report-form { display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem; }
+#settings-form h2, #report-form h2 { font-size: 1.125rem; }
 
 .field { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 .field > label, .field > legend { font-weight: 600; padding: 0; }
@@ -335,3 +335,45 @@ html.mini .talk-btn { min-height: 3.25rem; }
 html.mini .talk-btn small { display: none; }
 html.mini .talk-tools { gap: 0.35rem; }
 @media (max-width: 520px), (pointer: coarse) { kbd { display: none; } }
+
+/* Prvi dani u poslu: provera uređaja, merenje, prijave */
+dialog { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.field h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.field .actions { margin-top: 0.15rem; }
+
+.checks { list-style: none; margin: 0.25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.check-row { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.5rem 0.65rem; border-radius: 10px; border: 1px solid var(--line); }
+.check-row > div { display: flex; flex-direction: column; min-width: 0; }
+.check-row strong { font-weight: 600; }
+.check-row span:not(.badge) { font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
+.badge {
+  flex: none; min-width: 5.5rem; text-align: center; padding: 0.1rem 0.5rem;
+  font-size: 0.75rem; font-weight: 650; border-radius: 999px;
+  background: var(--bg); color: var(--muted);
+}
+.check-row.ok .badge { background: var(--accent-soft); color: var(--accent); }
+.check-row.warn { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.check-row.warn .badge { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.check-row.fail { border-color: var(--danger); background: var(--danger-soft); }
+.check-row.fail .badge { background: var(--danger); color: var(--panel); }
+
+.report-pair { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.65rem 0.8rem; background: var(--bg); border-radius: 10px; }
+.report-pair .who { font-size: 0.75rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.report-pair p { margin: 0 0 0.4rem; overflow-wrap: anywhere; }
+.report-pair p:last-child { margin-bottom: 0; }
+textarea.plain {
+  flex: none; min-height: 4.5rem; padding: 0.6rem 0.75rem; font-size: 1rem; line-height: 1.4;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; resize: vertical;
+}
+#report-kinds .model { padding: 0.45rem 0.75rem; align-items: center; }
+#report-kinds .model input { margin-top: 0; }
+
+.turn .report { align-self: flex-start; margin-top: 0.1rem; opacity: 0.8; }
+.turn .report:hover { opacity: 1; }
+
+.toast {
+  position: fixed; inset: auto 16px max(1rem, env(safe-area-inset-bottom)) 16px; z-index: 10;
+  max-width: 28rem; margin-inline: auto; padding: 0.7rem 1rem; text-align: center;
+  background: var(--fg); color: var(--bg); border-radius: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+}
+.toast[hidden] { display: none; }

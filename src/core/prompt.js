@@ -5,12 +5,20 @@ import { isDomain } from './domains.js';
 
 export const LANGUAGE_NAMES = { en: 'English', sr: 'Serbian' };
 
+// Izrazi koji ostaju na engleskom i u srpskoj rečenici (vozači i dispečeri ih tako govore).
+export const TRUCKING_TERMS = [
+  'load', 'BOL', 'POD', 'rate confirmation (rate con)', 'detention', 'lumper', 'layover', 'TONU',
+  'deadhead', 'bobtail', 'reefer', 'dry van', 'flatbed', 'tarp', 'shipper', 'receiver', 'consignee',
+  'broker', 'lane', 'appointment', 'drop and hook', 'live load', 'live unload', 'ETA', 'ELD', 'HOS',
+  'DOT', 'CDL', 'scale', 'weigh station', 'hazmat', 'roadside', 'truck stop',
+];
+
 // Rečnik i pravila za dispečere kamiona u SAD. Vozači iz Srbije govore srpski
 // sa mnogo engleskih reči, a dispečer mora da dobije tačne brojeve i adrese.
 const TRUCKING_LINES = [
   '',
   'Domain: US trucking and freight dispatch. The speakers are a dispatcher (English) and a truck driver (Serbian).',
-  '- Keep these industry terms in English inside Serbian sentences, because drivers and dispatchers use them: load, BOL, POD, rate confirmation (rate con), detention, lumper, layover, TONU, deadhead, bobtail, reefer, dry van, flatbed, tarp, shipper, receiver, consignee, broker, lane, appointment, drop and hook, live load, live unload, ETA, ELD, HOS, DOT, CDL, scale, weigh station, hazmat, roadside, truck stop.',
+  `- Keep these industry terms in English inside Serbian sentences, because drivers and dispatchers use them: ${TRUCKING_TERMS.join(', ')}.`,
   '- Drivers speak Serbian mixed with English trucking words, often spelled the Serbian way (for example "pikap" = pickup, "lod" = load, "bol", "delivery", "dispeč"). Read them as the English trucking term and write the proper English term when translating into English.',
   '- Copy exactly: numbers, load / PO / BOL / trailer / truck numbers, addresses, ZIP codes, phone numbers, times, dates, mileage, weights, temperatures, exit numbers, highway names and place names. Write numbers as digits. Never round, reformat or convert units (miles stay miles, lbs stay lbs, degrees Fahrenheit stay Fahrenheit), and never translate city or street names.',
   '- Keep the tone short and direct, as dispatchers and drivers talk. Do not add politeness, softening or explanations that are not in the source.',

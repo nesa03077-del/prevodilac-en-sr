@@ -167,3 +167,14 @@ describe('oblast i rokovi', () => {
     expect(createClient('k', { maxRetries: 0 }).maxRetries).toBe(0);
   });
 });
+
+describe('merenje brzine', () => {
+  it('vraća vreme do prvog dela i ukupno vreme', async () => {
+    const client = createFakeClient(() => ({ chunks: ['Zdr', 'avo'], delayMs: 15 }));
+    const r = await createTranslator({ client }).translate({ text: 'Hello', from: 'en', to: 'sr' });
+    expect(r.firstTokenMs).toBeGreaterThanOrEqual(10);
+    expect(r.totalMs).toBeGreaterThanOrEqual(r.firstTokenMs);
+    expect(Number.isInteger(r.firstTokenMs)).toBe(true);
+    expect(Number.isInteger(r.totalMs)).toBe(true);
+  });
+});
