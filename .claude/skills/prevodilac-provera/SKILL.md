@@ -33,13 +33,16 @@ Proveri:
 
 ## 3. Provera u pregledaču (od koraka 2)
 
-Pokreni `npm run build && npx vite preview --port 4173` u pozadini i otvori
-stranicu Playwright-om (Chromium je već instaliran; ne pokreći
-`playwright install`). Proveri:
-- stranica se učitava bez grešaka u konzoli
-- bez API ključa aplikacija traži ključ umesto da pukne
-- sa lažnim/neispravnim ključem pojavi se poruka "API ključ nije ispravan"
-- izgled na širini telefona (390 px) i računara (1280 px) - napravi snimak ekrana
+```bash
+npm run build && npm run e2e
+```
+
+`scripts/e2e.mjs` pokreće izgrađenu stranicu u Chromium-u (Playwright je već u
+okruženju; ne dodaje se u projekat i ne pokreće se `playwright install`), laže
+Anthropic API na mrežnom nivou i proverava ceo put kroz pravi SDK. Svaka nova
+mogućnost ekrana dobija novu proveru u tom fajlu. Posle toga **pogledaj snimke**
+iz `e2e-shots/` (telefon 390 px i računar 1280 px, svetla i tamna tema); brojevi
+ne otkrivaju loš izgled.
 
 ## 4. Pravi API (kad je menjan prompt, model ili zahtev)
 

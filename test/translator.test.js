@@ -119,3 +119,28 @@ describe('cleanOutput', () => {
   });
 });
 
+
+describe('zahtev prema modelu', () => {
+  it('Haiku ne dobija effort ni rezervni model', async () => {
+    const client = createFakeClient(() => ({ chunks: ['Zdravo'] }));
+    await createTranslator({ client, model: 'claude-haiku-4-5' }).translate({
+      text: 'Hello', from: 'en', to: 'sr',
+    });
+    const { params } = client.calls[0];
+    expect(params.model).toBe('claude-haiku-4-5');
+    expect(params.output_config).toBeUndefined();
+    expect(params.fallbacks).toBeUndefined();
+    expect(params.betas).toBeUndefined();
+    expect(params.thinking).toBeUndefined();
+  });
+
+  it('Sonnet 5.5 dobija effort i rezervni model', async () => {
+    const client = createFakeClient(() => ({ chunks: ['Zdravo'] }));
+    await createTranslator({ client, model: 'claude-sonnet-5-5' }).translate({
+      text: 'Hello', from: 'en', to: 'sr',
+    });
+    const { params } = client.calls[0];
+    expect(params.output_config).toEqual({ effort: 'low' });
+    expect(params.fallbacks).toBe('default');
+  });
+});

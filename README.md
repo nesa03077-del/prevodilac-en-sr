@@ -9,9 +9,14 @@ srpski prevod je uvek latinicom. Plan i stanje rada: [ROADMAP.md](ROADMAP.md).
 git clone https://github.com/nesa03077-del/prevodilac-en-sr.git
 cd prevodilac-en-sr
 npm install
+npm run dev                               # aplikacija na http://localhost:5173
 npm test                                  # automatski testovi (bez interneta i ključa)
+npm run build && npm run e2e              # provera u pravom pregledaču (lažni API)
 ANTHROPIC_API_KEY=sk-ant-... npm run smoke  # prava provera prevoda i brzine
 ```
+
+Pri prvom otvaranju aplikacija traži Anthropic API ključ. Ključ ostaje samo u vašem
+pregledaču (localStorage) i šalje se samo na api.anthropic.com.
 
 `npm run smoke` troši malo kredita sa naloga (12 kratkih rečenica). Drugi model
 ili effort: `MODEL=claude-sonnet-5-5 EFFORT=low npm run smoke`.
@@ -20,6 +25,8 @@ ili effort: `MODEL=claude-sonnet-5-5 EFFORT=low npm run smoke`.
 
 | Putanja | Šta radi |
 |---|---|
+| `index.html`, `src/ui/` | Ekran (stranica, stilovi, povezivanje sa jezgrom) |
+| `src/core/models.js`, `settings.js`, `direction.js` | Modeli, podešavanja, natpisi smera |
 | `src/core/translator.js` | Poziv Claude API-ja, strimovanje, greške |
 | `src/core/live.js` | Prevod dok se kuca/govori (debounce, prekid starih zahteva) |
 | `src/core/detect.js` | Prepoznaje da li je tekst engleski ili srpski |
@@ -27,5 +34,6 @@ ili effort: `MODEL=claude-sonnet-5-5 EFFORT=low npm run smoke`.
 | `src/core/transliterate.js` | Ćirilica -> latinica |
 | `test/` | Testovi (vitest) |
 | `scripts/smoke.js`, `scripts/smoke-cases.js` | Provera sa pravim API-jem |
+| `scripts/e2e.mjs` | Provera ekrana u Chromium-u, snimci u `e2e-shots/` |
 
 Pravila rada su u skilovima u `.claude/skills/prevodilac-*`.

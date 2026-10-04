@@ -26,13 +26,23 @@ Claude API-ja; srpski prevod uvek latinicom; zaseban repo `prevodilac-en-sr`.
   zlatnih rečenica i merenjem brzine
 - Ostalo: `npm run smoke` nije pokrenut jer u okruženju nema API ključa
 
-## [ ] Korak 2 - Režim kucanja (web)
+## [x] Korak 2 - Režim kucanja (web)
 
-- Stranica sa dva polja: tekst levo, prevod desno (na telefonu jedno ispod drugog)
-- Prevod se pojavljuje dok se kuca; smer: Automatski / EN->SR / SR->EN, dugme za zamenu
-- Unos API ključa (čuva se samo na uređaju), izbor modela, brisanje ključa
-- Dugmad: kopiraj prevod, obriši; prikaz grešaka na srpskom
-- Provera: build, Playwright snimci na 390 px i 1280 px
+- `index.html`, `src/ui/main.js`, `src/ui/style.css`: dva polja (na telefonu jedno ispod
+  drugog), prevod se pojavljuje dok se kuca (strimovanje, debounce 350 ms, stari zahtev se
+  prekida), svetla i tamna tema
+- Smer: Automatski / EN -> SR / SR -> EN, dugme Zameni (prevod postaje izvorni tekst)
+- Podešavanja: API ključ (samo u localStorage, prikaz maskiran, potvrda pri brisanju),
+  izbor modela (Opus 5.5, Sonnet 5.5, Haiku 4.5), brisanje ključa i svih podataka
+- Kopiraj (sa rezervom ako clipboard nije dozvoljen), Obriši, Ctrl/Cmd+Enter prevodi odmah
+- Greške na srpskom (pogrešan ključ nudi dugme Podešavanja); bez ključa se ništa ne šalje
+- Jezgro: `models.js` (zahtev prema mogućnostima modela: Haiku bez effort i fallbacks),
+  `settings.js`, `direction.js`
+- Bezbednost: završna verzija ima CSP koji dozvoljava vezu samo ka api.anthropic.com
+- Provera: 80 testova (`npm test`) i 54 provere u pravom Chromium-u (`npm run build &&
+  npm run e2e`) sa lažnim API-jem; snimci na 390 px i 1280 px, svetla i tamna tema
+- Nije provereno: pravi odgovori Sonnet 5.5 i Haiku 4.5 (`npm run smoke` nije pokrenut,
+  nema ključa u okruženju). Haiku je najrizičniji jer ne prima parametre kao Opus/Sonnet
 
 ## [ ] Korak 3 - Režim razgovora (govor)
 

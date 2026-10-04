@@ -4,9 +4,10 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { buildSystemPrompt, buildUserMessage } from './prompt.js';
+import { DEFAULT_MODEL_ID, getModelInfo } from './models.js';
 import { toLatin } from './transliterate.js';
 
-export const DEFAULT_MODEL = 'claude-opus-5-5';
+export const DEFAULT_MODEL = DEFAULT_MODEL_ID;
 // Prevod kratkog teksta ne traži duboko razmišljanje; "low" daje najkraće čekanje.
 export const DEFAULT_EFFORT = 'low';
 const MAX_TOKENS = 16000;
@@ -91,18 +92,19 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
 
     let raw = '';
     try {
-      const stream = client.beta.messages.stream(
-        {
-          model,
-          max_tokens: MAX_TOKENS,
-          betas: [FALLBACK_BETA],
-          fallbacks: 'default',
-          output_config: { effort },
-          system: buildSystemPrompt({ from, to }),
-          messages: [{ role: 'user', content: buildUserMessage(text, context) }],
-        },
-        { signal },
-      );
+      const info = getModelInfo(model);
+      const params = {
+        model,
+        max_tokens: MAX_TOKENS,
+        system: buildSystemPrompt({ from, to }),
+        messages: [{ role: 'user', content: buildUserMessage(text, context) }],
+      };
+      if (info.effort) params.output_config = { effort };
+      if (info.fallback) {
+        params.betas = [FALLBACK_BETA];
+        params.fallbacks = 'default';
+      }
+      const stream = client.beta.messages.stream(params, { signal });
 
       for await (const event of stream) {
         if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {

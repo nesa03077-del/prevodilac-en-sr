@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="sr-Latn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Prevodilac</title>
+  <link rel="stylesheet" href="./src/ui/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1>Prevodilac</h1>
+      <button type="button" id="settings-btn" class="ghost">Podešavanja</button>
+    </header>
+
+    <div class="controls">
+      <fieldset class="seg" id="mode-group">
+        <legend class="sr-only">Smer prevoda</legend>
+        <input type="radio" name="mode" id="mode-auto" value="auto"><label for="mode-auto">Automatski</label>
+        <input type="radio" name="mode" id="mode-en-sr" value="en-sr"><label for="mode-en-sr">EN → SR</label>
+        <input type="radio" name="mode" id="mode-sr-en" value="sr-en"><label for="mode-sr-en">SR → EN</label>
+      </fieldset>
+      <button type="button" id="swap" class="ghost" aria-label="Zameni jezike">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M7 7h11l-3-3m3 3-3 3M17 17H6l3-3m-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Zameni</span>
+      </button>
+    </div>
+
+    <div id="notice" class="notice" role="alert" hidden>
+      <p id="notice-text"></p>
+      <button type="button" id="notice-action" class="ghost" hidden></button>
+    </div>
+
+    <main class="panes">
+      <section class="pane" aria-labelledby="source-lang">
+        <div class="pane-head">
+          <label id="source-lang" for="source" class="lang">Engleski ili srpski</label>
+          <span id="auto-tag" class="tag" hidden>automatski</span>
+          <button type="button" id="clear" class="ghost small" disabled>Obriši</button>
+        </div>
+        <textarea id="source" rows="6" placeholder="Ukucajte ili nalepite tekst…" autocomplete="off" autocapitalize="sentences" spellcheck="false"></textarea>
+      </section>
+
+      <section class="pane out" aria-labelledby="target-lang">
+        <div class="progress" id="progress" hidden></div>
+        <div class="pane-head">
+          <h2 id="target-lang" class="lang">Prevod</h2>
+          <button type="button" id="copy" class="ghost small" disabled>Kopiraj</button>
+        </div>
+        <div id="output" class="output" data-empty="true" role="region" aria-live="polite" aria-label="Prevod" aria-busy="false" data-placeholder="Prevod će se pojaviti ovde dok kucate."></div>
+      </section>
+    </main>
+
+    <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju.</p>
+  </div>
+
+  <dialog id="settings" aria-labelledby="settings-title">
+    <form id="settings-form" novalidate>
+      <h2 id="settings-title">Podešavanja</h2>
+
+      <div class="field">
+        <label for="api-key">Anthropic API ključ</label>
+        <input type="password" id="api-key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…">
+        <p class="help" id="key-help">Ključ se čuva samo u ovom pregledaču i šalje se samo na api.anthropic.com.</p>
+        <p class="error" id="key-error" role="alert" hidden></p>
+      </div>
+
+      <fieldset class="field models">
+        <legend>Model</legend>
+        <div id="model-list"></div>
+      </fieldset>
+
+      <p class="help" id="storage-warning" hidden>Ovaj pregledač ne dozvoljava čuvanje podešavanja. Važe samo dok je stranica otvorena.</p>
+
+      <div class="actions">
+        <button type="button" id="forget" class="danger">Obriši ključ i podešavanja</button>
+        <span class="spacer"></span>
+        <button type="button" id="settings-cancel" class="ghost">Otkaži</button>
+        <button type="submit" class="primary">Sačuvaj</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/ui/main.js"></script>
+</body>
+</html>
