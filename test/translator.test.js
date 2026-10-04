@@ -144,3 +144,26 @@ describe('zahtev prema modelu', () => {
     expect(params.fallbacks).toBe('default');
   });
 });
+
+describe('oblast i rokovi', () => {
+  it('oblast ide u sistemski prompt', async () => {
+    const client = createFakeClient(() => ({ chunks: ['Zdravo'] }));
+    await createTranslator({ client, domain: 'trucking' }).translate({ text: 'Load 123', from: 'en', to: 'sr' });
+    expect(client.calls[0].params.system).toContain('US trucking and freight dispatch');
+  });
+
+  it('bez oblasti prompt je opšti', async () => {
+    const client = createFakeClient(() => ({ chunks: ['Zdravo'] }));
+    await createTranslator({ client }).translate({ text: 'Hello', from: 'en', to: 'sr' });
+    expect(client.calls[0].params.system).not.toContain('trucking');
+  });
+
+  it('klijent ima kratak rok i jedan ponovni pokušaj', async () => {
+    const { createClient, REQUEST_TIMEOUT_MS } = await import('../src/core/translator.js');
+    const c = createClient('sk-ant-test');
+    expect(REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(30_000);
+    expect(c.timeout).toBe(REQUEST_TIMEOUT_MS);
+    expect(c.maxRetries).toBe(1);
+    expect(createClient('k', { maxRetries: 0 }).maxRetries).toBe(0);
+  });
+});

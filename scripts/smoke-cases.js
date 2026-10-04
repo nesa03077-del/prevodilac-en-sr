@@ -27,4 +27,58 @@ export const SMOKE_CASES = [
     context: ['Ana je stigla kasno.'],
     expect: [/umorn(a|na)/i],
   },
+
+  // ---- Kamionski transport (domain: 'trucking'): dispečer govori engleski, vozač srpski ----
+  // Brojevi, adrese i oznake se prepisuju tačno; stručni izrazi ostaju na engleskom.
+  {
+    domain: 'trucking',
+    text: 'Pick up load 48213 in Joliet, Illinois, appointment is at 14:30, delivery in Dallas Thursday morning.',
+    from: 'en',
+    to: 'sr',
+    expect: [/48213/, /Joliet/, /14[:.]30/, /Dallas/],
+  },
+  {
+    domain: 'trucking',
+    text: 'You have 9 hours left on your HOS. Are you empty or loaded?',
+    from: 'en',
+    to: 'sr',
+    expect: [/\b9\b|devet/i, /HOS/, /prazan|prazna|prazni/i],
+  },
+  {
+    domain: 'trucking',
+    text: 'Send me the BOL and the POD as soon as the lumper is done. Detention starts after two hours.',
+    from: 'en',
+    to: 'sr',
+    expect: [/BOL/, /POD/, /lumper/i, /detention/i],
+  },
+  {
+    domain: 'trucking',
+    text: 'The weight is 43,500 lbs and the reefer is set to 34 degrees.',
+    from: 'en',
+    to: 'sr',
+    expect: [/43[.,]?500/, /lbs|funti/i, /34/],
+    reject: [/kg\b|kilogram/i],
+  },
+  // Vozač govori srpski sa engleskim izrazima (tipično kod vozača u SAD).
+  {
+    domain: 'trucking',
+    text: 'Stigao sam na pikap, čekam već tri sata, treba mi detention.',
+    from: 'sr',
+    to: 'en',
+    expect: [/pick.?up|pickup/i, /three hours|3 hours/i, /detention/i],
+  },
+  {
+    domain: 'trucking',
+    text: 'Imam kvar na kamionu, stojim na ruti 80 kod izlaza 112, treba mi roadside.',
+    from: 'sr',
+    to: 'en',
+    expect: [/80/, /112/, /roadside/i],
+  },
+  {
+    domain: 'trucking',
+    text: 'Nisam utovaren, shipper kaže da je lod spreman tek u šest ujutru.',
+    from: 'sr',
+    to: 'en',
+    expect: [/shipper/i, /load/i, /6|six/i],
+  },
 ];

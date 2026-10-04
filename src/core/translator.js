@@ -59,8 +59,17 @@ export function toTranslationError(err) {
 }
 
 /** Klijent za pregledač: ključ unosi sam korisnik i čuva se samo na njegovom uređaju. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
 export function createClient(apiKey, options = {}) {
-  return new Anthropic({ apiKey, dangerouslyAllowBrowser: true, ...options });
+  // Kratak rok i jedan ponovni pokušaj: dispečeru je bolje brza poruka o grešci nego duga tišina.
+  return new Anthropic({
+    apiKey,
+    dangerouslyAllowBrowser: true,
+    timeout: REQUEST_TIMEOUT_MS,
+    maxRetries: 1,
+    ...options,
+  });
 }
 
 /** Uklanja omaške modela: okolne razmake i slučajno ponovljene oznake. */
@@ -73,7 +82,7 @@ export function cleanOutput(text, to) {
 /**
  * @param {{ client: Anthropic, model?: string, effort?: string }} options
  */
-export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAULT_EFFORT }) {
+export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAULT_EFFORT, domain = 'general' }) {
   /**
    * Prevodi tekst i javlja delimičan prevod kroz onText dok stiže.
    * @param {{
@@ -96,7 +105,7 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
       const params = {
         model,
         max_tokens: MAX_TOKENS,
-        system: buildSystemPrompt({ from, to }),
+        system: buildSystemPrompt({ from, to, domain }),
         messages: [{ role: 'user', content: buildUserMessage(text, context) }],
       };
       if (info.effort) params.output_config = { effort };
@@ -126,5 +135,5 @@ export function createTranslator({ client, model = DEFAULT_MODEL, effort = DEFAU
     }
   }
 
-  return { translate, model, effort };
+  return { translate, model, effort, domain };
 }

@@ -4,8 +4,10 @@
 import { describeDirection, oppositeMode } from '../core/direction.js';
 import { resolveDirection } from '../core/detect.js';
 import { createLiveSession } from '../core/live.js';
+import { DOMAINS } from '../core/domains.js';
 import { MODELS } from '../core/models.js';
 import {
+  DEFAULT_SETTINGS,
   createSettingsStore,
   looksLikeApiKey,
   maskKey,
@@ -41,7 +43,9 @@ const el = {
   modeRadios: [...document.querySelectorAll('input[name="mode"]')],
   viewRadios: [...document.querySelectorAll('input[name="view"]')],
   typing: $('typing'),
-  talking: $('talking'),
+  talkSlot: $('talk-slot'),
+  net: $('net'),
+  domainList: $('domain-list'),
 };
 
 function getStorage() {
@@ -64,14 +68,14 @@ let storageFailed = false;
 function renderView() {
   for (const radio of el.viewRadios) radio.checked = radio.value === settings.view;
   el.typing.hidden = settings.view !== 'type';
-  el.talking.hidden = settings.view !== 'talk';
+  el.talkSlot.hidden = settings.view !== 'talk';
 }
 
 function setView(view) {
   if (view === settings.view) return;
   settings = { ...settings, view };
   if (!store.save(settings)) storageFailed = true;
-  if (view !== 'talk') talk?.stop();
+  if (view !== 'talk' && !talk?.miniActive) talk?.stop();
   renderView();
   (view === 'type' ? el.source : null)?.focus();
 }
@@ -143,6 +147,7 @@ function buildEngine() {
   const translator = createTranslator({
     client: createClient(settings.apiKey),
     model: settings.model,
+    domain: settings.domain,
   });
   const session = createLiveSession({
     translator,
@@ -281,6 +286,29 @@ el.copy.addEventListener('click', async () => {
 
 let forgetArmed = false;
 
+function radioCard({ name, value, title, hint }) {
+  const label = document.createElement('label');
+  label.className = 'model';
+  const input = document.createElement('input');
+  input.type = 'radio';
+  input.name = name;
+  input.value = value;
+  const box = document.createElement('div');
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.textContent = hint;
+  box.append(strong, span);
+  label.append(input, box);
+  return label;
+}
+
+function renderDomainList() {
+  el.domainList.replaceChildren(
+    ...DOMAINS.map((d) => radioCard({ name: 'domain', value: d.id, title: d.label, hint: d.hint })),
+  );
+}
+
 function renderModelList() {
   el.modelList.replaceChildren(
     ...MODELS.map((m) => {
@@ -316,6 +344,7 @@ function openSettings() {
   el.keyError.hidden = true;
   el.storageWarning.hidden = !storageFailed;
   for (const input of el.modelList.querySelectorAll('input')) input.checked = input.value === settings.model;
+  for (const input of el.domainList.querySelectorAll('input')) input.checked = input.value === settings.domain;
   el.forget.hidden = !settings.apiKey;
   resetForgetButton();
   if (!el.dialog.open) el.dialog.showModal();
@@ -356,8 +385,9 @@ el.form.addEventListener('submit', (e) => {
     return;
   }
   const model = el.modelList.querySelector('input:checked')?.value ?? settings.model;
+  const domain = el.domainList.querySelector('input:checked')?.value ?? settings.domain;
   storageFailed = false;
-  applySettings({ ...settings, apiKey: typed || settings.apiKey, model });
+  applySettings({ ...settings, apiKey: typed || settings.apiKey, model, domain });
   closeSettings();
   hideNotice();
   if (storageFailed) {
@@ -375,7 +405,7 @@ el.forget.addEventListener('click', () => {
   disposeEngine();
   talk?.stop();
   talk?.clear();
-  settings = { ...settings, apiKey: '', model: MODELS[0].id, mode: 'auto', view: 'type', speak: true };
+  settings = { ...DEFAULT_SETTINGS };
   renderView();
   talk?.refresh();
   renderMode();
@@ -388,6 +418,7 @@ el.forget.addEventListener('click', () => {
 
 // ---------- pokretanje ----------
 
+renderDomainList();
 renderModelList();
 renderMode();
 renderLabels();
@@ -413,4 +444,23 @@ if (settings.apiKey) {
 } else {
   showNoKeyNotice();
   openSettings();
+}
+
+// ---------- mreža ----------
+
+function renderNet() {
+  el.net.hidden = navigator.onLine !== false;
+}
+window.addEventListener('online', renderNet);
+window.addEventListener('offline', renderNet);
+renderNet();
+
+// ---------- instalacija i rad bez mreže (PWA) ----------
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      /* bez servisnog radnika aplikacija radi, samo se ne učitava bez mreže */
+    });
+  });
 }

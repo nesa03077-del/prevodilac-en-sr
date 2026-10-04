@@ -16,6 +16,7 @@ za kucanje i za razgovor (govor), prvo kao web aplikacija (PWA), zatim Android.
    - Claude API, model, strimovanje, greške -> `prevodilac-claude-api`
    - kvalitet prevoda, sistemski prompt, latinica -> `prevodilac-kvalitet-prevoda`
    - mikrofon, prepoznavanje govora, izgovor -> `prevodilac-govor`
+   - dispečerski režim, tačnost brojeva, brze fraze, mali prozor, PWA -> `prevodilac-dispecer`
    - provera pre commit-a -> `prevodilac-provera` (uvek, na kraju svakog koraka)
 3. **Jezgro je čist JavaScript bez DOM-a** (`src/core/`). UI (`src/ui/`) samo
    poziva jezgro. Logika koju je moguće testirati ide u jezgro, ne u UI.

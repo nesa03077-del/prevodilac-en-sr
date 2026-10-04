@@ -4,13 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0b6b63">
   <title>Prevodilac</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="preconnect" href="https://api.anthropic.com">
   <link rel="stylesheet" href="./src/ui/style.css">
 </head>
 <body>
   <div class="app">
     <header class="top">
       <h1>Prevodilac</h1>
+      <span id="net" class="tag warn" role="status" hidden>Bez interneta</span>
       <button type="button" id="settings-btn" class="ghost">Podešavanja</button>
     </header>
 
@@ -60,19 +66,27 @@
     </main>
     </div>
 
-    <div id="talking" class="view" hidden>
+    <div id="talk-slot" class="view" hidden>
+    <div id="talking" class="talk">
       <p id="talk-unsupported" class="notice info" hidden></p>
       <p id="talk-alert" class="notice" role="alert" hidden></p>
       <p id="talk-status" class="status" role="status" aria-live="polite">Pritisnite dugme i govorite.</p>
       <ol id="talk-log" class="log" aria-label="Razgovor" data-placeholder="Pritisnite jedno od dugmadi i govorite. Prevod se pojavljuje dok govorite, a izgovara se kad završite rečenicu."></ol>
       <div class="talk-bar">
-        <button type="button" class="talk-btn" data-lang="en" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span><strong>Engleski govori</strong><small>prevod na srpski</small></span></button>
-        <button type="button" class="talk-btn" data-lang="sr" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span><strong>Srpski govori</strong><small>prevod na engleski</small></span></button>
+        <button type="button" class="talk-btn" data-lang="en" aria-pressed="false" aria-keyshortcuts="1"><span class="dot" aria-hidden="true"></span><span><strong>Engleski govori</strong><small>prevod na srpski <kbd>1</kbd></small></span></button>
+        <button type="button" class="talk-btn" data-lang="sr" aria-pressed="false" aria-keyshortcuts="2"><span class="dot" aria-hidden="true"></span><span><strong>Srpski govori</strong><small>prevod na engleski <kbd>2</kbd></small></span></button>
       </div>
+      <details id="phrases" class="phrases" open>
+        <summary>Brze fraze <span class="hint">izgovaraju se odmah, bez prevoda</span></summary>
+        <div id="phrase-list"></div>
+      </details>
       <div class="talk-tools">
         <label class="check"><input type="checkbox" id="speak-toggle"> Izgovaraj prevod</label>
+        <span class="spacer"></span>
+        <button type="button" id="mini-btn" class="ghost small" hidden>Mali prozor</button>
         <button type="button" id="talk-clear" class="ghost small" disabled>Obriši razgovor</button>
       </div>
+    </div>
     </div>
 
     <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju. Govor prepoznaje vaš pregledač (Chrome i Edge ga šalju svom servisu za prepoznavanje).</p>
@@ -88,6 +102,11 @@
         <p class="help" id="key-help">Ključ se čuva samo u ovom pregledaču i šalje se samo na api.anthropic.com.</p>
         <p class="error" id="key-error" role="alert" hidden></p>
       </div>
+
+      <fieldset class="field models">
+        <legend>Oblast prevoda</legend>
+        <div id="domain-list"></div>
+      </fieldset>
 
       <fieldset class="field models">
         <legend>Model</legend>

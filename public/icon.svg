@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0b6b63"/>
+  <path d="M96 150a46 46 0 0 1 46-46h168a46 46 0 0 1 46 46v96a46 46 0 0 1-46 46H206l-62 52v-52h0a46 46 0 0 1-48-46z" fill="#ffffff"/>
+  <rect x="232" y="296" width="196" height="118" rx="46" fill="#b8e6df"/>
+  <path d="M388 408l30 48-72-42z" fill="#b8e6df"/>
+  <text x="226" y="222" font-family="Arial, Helvetica, sans-serif" font-size="92" font-weight="700" text-anchor="middle" fill="#0b6b63">EN</text>
+  <text x="330" y="378" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="700" text-anchor="middle" fill="#0b6b63">SR</text>
+</svg>

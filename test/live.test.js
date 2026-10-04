@@ -143,3 +143,21 @@ describe('createLiveSession', () => {
     expect(updates).toEqual([]);
   });
 });
+
+describe('lastResult', () => {
+  it('pamti poslednji završen prevod i briše se sa resetom i praznim tekstom', async () => {
+    const translator = {
+      translate: vi.fn(async ({ text }) => ({ text: `[${text}]` })),
+    };
+    const session = createLiveSession({ translator, onUpdate: () => {} });
+    expect(session.lastResult).toBe(null);
+    await session.flush('Hello');
+    expect(session.lastResult).toEqual({ source: 'Hello', translation: '[Hello]', from: 'en', to: 'sr' });
+    await session.flush('');
+    expect(session.lastResult).toBe(null);
+    await session.flush('Hello again');
+    expect(session.lastResult.source).toBe('Hello again');
+    session.reset();
+    expect(session.lastResult).toBe(null);
+  });
+});

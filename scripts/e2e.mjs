@@ -17,7 +17,7 @@ const shotsDir = path.resolve(process.env.SHOTS_DIR || path.join(here, '../e2e-s
 
 function loadPlaywright() {
   const require = createRequire(import.meta.url);
-  const candidates = [process.env.PLAYWRIGHT_MODULE, 'playwright', 'playwright-core', '/home/user/node-tools/node_modules/playwright'];
+  const candidates = [process.env.PLAYWRIGHT_MODULE, 'playwright', 'playwright-core', '/opt/node-tools/node_modules/playwright'];
   for (const c of candidates.filter(Boolean)) {
     try {
       return require(c);
@@ -84,6 +84,9 @@ async function fakeApi(route) {
   if (source.includes('trigger-auth')) return err(401, 'authentication_error');
   if (source.includes('trigger-limit')) return err(429, 'rate_limit_error');
   const toSerbian = body.system.includes('into Serbian');
+  // Namerno pogrešan broj (48213 -> 48231) da bi se videlo upozorenje, i prevod nazad.
+  if (source.includes('48213')) return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(['Tovar 48231 ', 'u 14:30']) });
+  if (source.includes('Tovar 48231')) return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(['Load 48231 ', 'at 14:30']) });
   let chunks = toSerbian ? ['Zdravo ', 'svete'] : ['Hello ', 'world'];
   if (source.includes('Good day')) chunks = ['Добар ', 'дан'];
   return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(chunks) });
@@ -124,6 +127,34 @@ const FAKE_SPEECH = `
 })();
 `;
 
+// Lažni Document Picture-in-Picture: pravi običan mali prozor (popup).
+const FAKE_PIP = `
+window.documentPictureInPicture = {
+  requestWindow: async ({ width, height }) => window.open('', 'mini', 'popup,width=' + width + ',height=' + height),
+};
+`;
+
+// Lažni odgovor API-ja bez Playwright presretanja mreže (kad ono smeta, npr. kod skočnog prozora).
+const FAKE_FETCH = `
+(() => {
+  const real = window.fetch.bind(window);
+  const ev = (o) => 'event: ' + o.type + '\\ndata: ' + JSON.stringify(o) + '\\n\\n';
+  window.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (!url.startsWith('https://api.anthropic.com/')) return real(input, init);
+    const body = [
+      { type: 'message_start', message: { id: 'm', type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 0 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Zdravo svete' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 3 } },
+      { type: 'message_stop' },
+    ].map(ev).join('');
+    return Promise.resolve(new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+  };
+})();
+`;
+
 const NO_SPEECH = `
 delete window.SpeechRecognition;
 delete window.webkitSpeechRecognition;
@@ -160,13 +191,13 @@ const { chromium } = loadPlaywright();
 const browser = await chromium.launch();
 fs.mkdirSync(shotsDir, { recursive: true });
 
-async function newPage(opts = {}) {
+async function newPage({ noRoute = false, ...opts } = {}) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
     permissions: ['clipboard-read', 'clipboard-write'],
     ...opts,
   });
-  await context.route('https://api.anthropic.com/**', fakeApi);
+  if (!noRoute) await context.route('https://api.anthropic.com/**', fakeApi);
   const page = await context.newPage();
   const problems = [];
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
@@ -405,6 +436,148 @@ try {
     await k.context.close();
   }
 
+  // ===== 15. Dispečerski režim =====
+  console.log('15. Dispečerski režim');
+  {
+    apiCalls.length = 0;
+    const t = await talkPage({}, { view: 'talk' });
+    const p = t.page;
+    const active = () => p.evaluate(() => window.__active());
+    const until = (fn, arg) => p.waitForFunction(fn, arg, { timeout: 5000 }).then(() => true, () => false);
+
+    // prečice
+    await p.keyboard.press('1');
+    check('prečica 1: sluša engleski', (await active()) === 1 && (await p.evaluate(() => window.__recs.at(-1).lang)) === 'en-US');
+    await p.keyboard.press('2');
+    check('prečica 2: prelazi na srpski', (await p.evaluate(() => window.__recs.at(-1).lang)) === 'sr-RS' && (await p.locator('.talk-btn[data-lang=en]').getAttribute('aria-pressed')) === 'false');
+    await p.keyboard.press('Escape');
+    check('Esc zaustavlja slušanje', (await active()) === 0);
+
+    // brze fraze: izgovaraju se odmah, bez zahteva ka API-ju
+    await p.click('.phrase[data-phrase=where]');
+    check('fraza ulazi u razgovor kao gotova', await until(() => document.querySelector('.turn.fixed .tr')?.textContent === 'Gde si sada?'));
+    check('fraza se izgovara srpskim glasom', await until(() => window.__spoken.some((x) => x.text === 'Gde si sada?' && x.lang === 'sr-RS')));
+    check('fraza ne šalje zahtev ka API-ju', apiCalls.length === 0);
+    check('gotova fraza nema dugme Proveri', (await p.locator('.turn.fixed .verify').count()) === 0);
+    await until(() => !window.__speaking);
+
+    // pogrešan broj u prevodu: upozorenje i istaknuti brojevi
+    await p.keyboard.press('1');
+    await p.evaluate(() => window.__emit([['Pick up load 48213 at 14:30', true]]));
+    check('upozorenje kad se broj razlikuje', await until(() => /48213/.test(document.querySelector('.turn:not(.fixed) .warn')?.textContent ?? '') && /48231/.test(document.querySelector('.turn:not(.fixed) .warn')?.textContent ?? '')));
+    check('brojevi su istaknuti', (await p.locator('.turn:not(.fixed) mark.num').count()) >= 4);
+    check('prompt sadrži kamionski rečnik', Boolean(apiCalls.at(-1)?.body.system.includes('US trucking and freight dispatch')));
+    await until(() => !window.__speaking && window.__active() === 1);
+
+    // provera prevodom nazad
+    await p.click('.turn:not(.fixed) .verify');
+    check('prevod nazad se prikazuje', await until(() => document.querySelector('.turn .check .back')?.textContent === 'Load 48231 at 14:30'));
+    check('prevod nazad takođe upozorava na broj', (await p.locator('.turn .check .warn').count()) === 1);
+    const backCall = apiCalls.at(-1);
+    check('prevod nazad ide u suprotnom smeru', Boolean(backCall?.body.system.includes('from Serbian into English')));
+    await until(() => !window.__speaking && window.__active() === 1);
+
+    // prevod koji je već stigao uživo koristi se bez novog zahteva
+    await p.evaluate(() => window.__emit([['Send me the BOL', false]]));
+    check('delimičan prevod stiže', await until(() => document.querySelector('.turn.live .tr')?.textContent === 'Zdravo svete'));
+    const before = apiCalls.length;
+    await p.evaluate(() => window.__emit([['Send me the BOL.', true]]));
+    check('konačna rečenica odmah ima prevod', await until(() => [...document.querySelectorAll('.turn:not(.fixed):not(.live) .src')].some((e) => e.textContent === 'Send me the BOL.')));
+    await p.waitForTimeout(400);
+    check('nema novog zahteva za isti tekst', apiCalls.length === before, `pre: ${before}, posle: ${apiCalls.length}`);
+    await until(() => !window.__speaking);
+
+    // oblast u podešavanjima
+    await p.click('#settings-btn');
+    check('podrazumevana oblast je kamionski transport', await p.locator('input[name=domain][value=trucking]').isChecked());
+    await p.check('input[name=domain][value=general]');
+    await p.click('#settings-form button[type=submit]');
+    check('oblast je zapamćena', (await p.evaluate(() => JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1')).domain)) === 'general');
+    apiCalls.length = 0;
+    await until(() => window.__active() === 1);
+    await p.evaluate(() => window.__emit([['Please repeat that', true]]));
+    await waitCalls(1);
+    check('opšta oblast nema kamionski rečnik', apiCalls.length > 0 && !apiCalls[0].body.system.includes('trucking'));
+    check('nema grešaka u konzoli (dispečer)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+  }
+
+  console.log('16. Mali prozor');
+  {
+    // Presretanje mreže u Playwright-u sprečava učitavanje stilova u skočnom prozoru (osobina
+    // alata, ne aplikacije), pa ovde API lažiramo unutar stranice, bez presretanja.
+    const t = await newPage({ noRoute: true });
+    await t.context.addInitScript(FAKE_SPEECH);
+    await t.context.addInitScript(FAKE_PIP);
+    await t.context.addInitScript(FAKE_FETCH);
+    await t.context.addInitScript(seedSettings({ view: 'talk' }));
+    await t.page.goto(origin);
+    const p = t.page;
+    check('dugme Mali prozor je dostupno', await p.locator('#mini-btn').isVisible());
+    const popupPromise = t.context.waitForEvent('page');
+    await p.click('#mini-btn');
+    const mini = await popupPromise;
+    await mini.waitForSelector('#talking', { timeout: 5000 });
+    check('razgovor je prebačen u mali prozor', await mini.locator('#talking').isVisible());
+    check('u glavnom prozoru ostaje oznaka sa dugmetom Vrati', await p.locator('.mini-placeholder').isVisible());
+    await mini.waitForTimeout(800);
+    const miniStyle = await mini.evaluate(() => {
+      const b = document.querySelector('.talk-btn');
+      return { radius: getComputedStyle(b).borderRadius, sheets: document.styleSheets.length };
+    });
+    check('mali prozor ima stilove (dugmad su veliki blokovi)', miniStyle.radius === '14px' && miniStyle.sheets >= 1, JSON.stringify(miniStyle));
+    check('mali prozor ima klasu mini', await mini.evaluate(() => document.documentElement.classList.contains('mini')));
+
+    await mini.keyboard.press('1');
+    check('prečica radi i u malom prozoru', (await p.evaluate(() => window.__active())) === 1);
+    await p.evaluate(() => window.__emit([['Where is the receiver', true]]));
+    check('prevod se vidi u malom prozoru', await mini.waitForFunction(() => document.querySelector('.turn .tr')?.textContent === 'Zdravo svete', null, { timeout: 5000, polling: 100 }).then(() => true, () => false));
+    await mini.screenshot({ path: path.join(shotsDir, 'mali-prozor.png') });
+
+    // izbor drugog pogleda u glavnom prozoru ne gasi mikrofon dok je mali prozor otvoren
+    await p.waitForFunction(() => !window.__speaking && window.__active() === 1, null, { timeout: 5000 });
+    await p.click('label[for=view-type]');
+    check('mikrofon ostaje dok je mali prozor otvoren', (await p.evaluate(() => window.__active())) >= 1);
+    check('mali prozor je i dalje prikazan', await mini.locator('#talking').isVisible());
+
+    // zatvaranje malog prozora vraća razgovor
+    await mini.close();
+    await p.waitForFunction(() => document.getElementById('talking').ownerDocument === document && !document.querySelector('.mini-placeholder'), null, { timeout: 5000 });
+    check('zatvaranje malog prozora vraća razgovor u glavni prozor', await p.evaluate(() => document.getElementById('talking').ownerDocument === document));
+    check('nema grešaka u konzoli (mali prozor)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+  }
+
+  console.log('17. Instalacija i rad bez interneta (PWA)');
+  {
+    const t = await newPage();
+    const p = t.page;
+    await p.goto(origin);
+    await p.waitForFunction(() => navigator.serviceWorker.ready.then((r) => Boolean(r.active)), null, { timeout: 10000 });
+    check('servisni radnik je aktivan', true);
+    const cacheNames = await p.evaluate(() => caches.keys());
+    check('fajlovi su sačuvani za rad bez mreže', cacheNames.some((n) => n.startsWith('prevodilac-')), JSON.stringify(cacheNames));
+
+    // Stranica ima strogu sigurnosnu politiku (fetch samo ka Anthropic-u), pa fajlove čitamo spolja.
+    const manifestHref = await p.evaluate(() => document.querySelector('link[rel=manifest]').href);
+    const m = await (await t.context.request.get(manifestHref)).json();
+    const iconStatus = await Promise.all(m.icons.map(async (i) => (await t.context.request.get(new URL(i.src, manifestHref).href)).status()));
+    const manifest = { name: m.name, display: m.display, icons: iconStatus, purposes: m.icons.map((i) => i.purpose) };
+    check('manifest ima ime i standalone prikaz', manifest.name.includes('Prevodilac') && manifest.display === 'standalone');
+    check('sve ikone iz manifesta se učitavaju', manifest.icons.every((s) => s === 200), JSON.stringify(manifest.icons));
+    check('postoji i maskable ikona', manifest.purposes.includes('maskable'));
+    check('nema grešaka u konzoli (PWA)', t.problems.length === 0, t.problems.join(' | '));
+
+    await t.context.setOffline(true);
+    await p.reload();
+    check('bez interneta stranica se ipak otvara', (await p.title()) === 'Prevodilac' && (await p.locator('#source').isVisible()));
+    check('bez interneta se vidi oznaka', await p.locator('#net').isVisible());
+    await t.context.setOffline(false);
+    await p.waitForFunction(() => document.getElementById('net').hidden, null, { timeout: 5000 }).catch(() => {});
+    check('kad se mreža vrati oznaka nestaje', await p.locator('#net').isHidden());
+    await t.context.close();
+  }
+
   // ===== 12. Snimci ekrana =====
   console.log('12. Snimci ekrana');
   const sizes = [
@@ -446,6 +619,9 @@ try {
       await p.evaluate(() => window.__emit([['Gde je apoteka?', true]]));
       await p.waitForFunction(() => window.__spoken.length === 2, null, { timeout: 4000 });
       await p.waitForFunction(() => !window.__speaking, null, { timeout: 4000 });
+      await p.evaluate(() => window.__emit([['Pick up load 48213 at 14:30', true]]));
+      await p.waitForFunction(() => document.querySelector('.turn .warn'), null, { timeout: 4000 });
+      await p.waitForFunction(() => !window.__speaking && window.__active() === 1, null, { timeout: 4000 });
       await p.evaluate(() => window.__emit([['hvala puno', false]]));
       await p.waitForFunction(() => document.querySelector('.turn.live .tr')?.textContent === 'Hello world', null, { timeout: 4000 });
       const noOverflow = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);

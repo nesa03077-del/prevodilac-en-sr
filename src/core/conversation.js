@@ -7,12 +7,16 @@
 // - Dok se prevod izgovara, mikrofon je pauziran da aplikacija ne bi čula sebe.
 
 import { createLiveSession } from './live.js';
+import { compareNumbers } from './numbers.js';
 import { SPEECH_ERROR_MESSAGES } from './speech-recognizer.js';
 import { ERROR_MESSAGES, TranslationError } from './translator.js';
 import { toLatin } from './transliterate.js';
 
 export const MAX_ITEMS = 50;
 const OTHER = { en: 'sr', sr: 'en' };
+
+// Isti tekst bez obzira na velika slova i znakove interpunkcije.
+const canonical = (t) => (t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 export const NO_VOICE_MESSAGE =
   'Ovaj uređaj nema srpski glas, pa se prevod na srpski samo prikazuje.';
@@ -126,53 +130,9 @@ export function createConversation({
     }
   }
 
-  function handleFinal(rawText) {
-    const from = speakerLang;
-    const to = OTHER[from];
-    const source = normalize(rawText, from);
-    if (!source) return;
-    clearInterim();
-
-    const item = { id: nextId++, from, to, source, translation: '', status: 'translating', error: null };
-    state.items.push(item);
-    if (state.items.length > MAX_ITEMS) state.items.splice(0, state.items.length - MAX_ITEMS);
-
-    const myEpoch = epoch;
-    const willSpeak = Boolean(speaker) && getSpeak();
+  // Dodaje stavku u razgovor; prevod (translated) se završava kad bude spreman, a izgovor ide redom.
+  function commit(item, translated, willSpeak, myEpoch) {
     if (willSpeak) pendingSpeech++;
-    state.error = null;
-    emit();
-
-    const translator = getTranslator();
-    const work = translator
-      ? translator.translate({
-          text: source,
-          from,
-          to,
-          context: contextBefore(item.id),
-          onText: (partial) => {
-            item.translation = partial;
-            emit();
-          },
-        })
-      : Promise.reject(new TranslationError('auth', NO_KEY_MESSAGE));
-
-    const translated = work.then(
-      (r) => {
-        item.translation = r.text;
-        item.status = 'done';
-        emit();
-        return true;
-      },
-      (err) => {
-        item.status = 'error';
-        item.error = err?.message || ERROR_MESSAGES.unknown;
-        emit();
-        return false;
-      },
-    );
-
-    // Izgovor ide redom, kako su rečenice izgovorene.
     pipeline = pipeline.then(async () => {
       const ok = await translated;
       if (!willSpeak) return;
@@ -182,6 +142,110 @@ export function createConversation({
         finishSpeech();
       }
     });
+  }
+
+  function markDone(item, text) {
+    item.translation = text;
+    item.status = 'done';
+    item.numbers = compareNumbers(item.source, text);
+    emit();
+    return true;
+  }
+
+  function pushItem(item) {
+    state.items.push(item);
+    if (state.items.length > MAX_ITEMS) state.items.splice(0, state.items.length - MAX_ITEMS);
+  }
+
+  function handleFinal(rawText) {
+    const from = speakerLang;
+    const to = OTHER[from];
+    const source = normalize(rawText, from);
+    if (!source) return;
+
+    // Ako je prevod istog teksta već stigao dok je osoba govorila, koristi se odmah.
+    const earlier = live.lastResult;
+    const reuse =
+      earlier && earlier.from === from && earlier.to === to && canonical(earlier.source) === canonical(source)
+        ? earlier.translation
+        : null;
+    clearInterim();
+
+    const item = {
+      id: nextId++, from, to, source, translation: '', status: 'translating',
+      error: null, numbers: null, check: null, fixed: false, reused: false,
+    };
+    pushItem(item);
+
+    const myEpoch = epoch;
+    const willSpeak = Boolean(speaker) && getSpeak();
+    state.error = null;
+
+    let translated;
+    if (reuse) {
+      item.reused = true;
+      translated = Promise.resolve(markDone(item, reuse));
+    } else {
+      emit();
+      const translator = getTranslator();
+      const work = translator
+        ? translator.translate({
+            text: source,
+            from,
+            to,
+            context: contextBefore(item.id),
+            onText: (partial) => {
+              item.translation = partial;
+              emit();
+            },
+          })
+        : Promise.reject(new TranslationError('auth', NO_KEY_MESSAGE));
+      translated = work.then(
+        (r) => markDone(item, r.text),
+        (err) => {
+          item.status = 'error';
+          item.error = err?.message || ERROR_MESSAGES.unknown;
+          emit();
+          return false;
+        },
+      );
+    }
+    commit(item, translated, willSpeak, myEpoch);
+  }
+
+  /** Unapred proverena fraza dispečera: srpski tekst se izgovara odmah, bez prevoda. */
+  function addPhrase(phrase) {
+    if (!phrase?.en || !phrase?.sr) throw new Error('Fraza nije ispravna.');
+    const item = {
+      id: nextId++, from: 'en', to: 'sr', source: phrase.en, translation: phrase.sr,
+      status: 'done', error: null, numbers: null, check: null, fixed: true, reused: false,
+    };
+    if (speaker && state.speaking) speaker.cancel();
+    pushItem(item);
+    state.error = null;
+    emit();
+    commit(item, Promise.resolve(true), Boolean(speaker) && getSpeak(), epoch);
+  }
+
+  /** Provera prevodom nazad: prevod se vraća na jezik govornika da bi se video smisao. */
+  function verify(id) {
+    const item = state.items.find((i) => i.id === id);
+    if (!item || item.status !== 'done' || item.fixed || item.check?.status === 'translating') return;
+    const translator = getTranslator();
+    if (!translator) return;
+    item.check = { status: 'translating', text: '', numbers: null, error: null };
+    emit();
+    translator
+      .translate({ text: item.translation, from: item.to, to: item.from, context: [] })
+      .then(
+        (r) => {
+          item.check = { status: 'done', text: r.text, numbers: compareNumbers(item.source, r.text), error: null };
+        },
+        (err) => {
+          item.check = { status: 'error', text: '', numbers: null, error: err?.message || ERROR_MESSAGES.unknown };
+        },
+      )
+      .then(emit);
   }
 
   const recognizer = createRecognizer({
@@ -244,6 +308,9 @@ export function createConversation({
       clearInterim();
       emit();
     },
+
+    addPhrase,
+    verify,
 
     dismissNotice() {
       state.notice = null;

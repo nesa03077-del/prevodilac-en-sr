@@ -12,11 +12,16 @@ if (!apiKey) {
   process.exit(2);
 }
 
-const translator = createTranslator({
-  client: createClient(apiKey),
-  model: process.env.MODEL || DEFAULT_MODEL,
-  effort: process.env.EFFORT || DEFAULT_EFFORT,
-});
+const client = createClient(apiKey);
+const translators = {};
+const translatorFor = (domain = 'general') =>
+  (translators[domain] ??= createTranslator({
+    client,
+    domain,
+    model: process.env.MODEL || DEFAULT_MODEL,
+    effort: process.env.EFFORT || DEFAULT_EFFORT,
+  }));
+const translator = translatorFor();
 
 console.log(`Model: ${translator.model}, effort: ${translator.effort}\n`);
 let failed = 0;
@@ -24,7 +29,7 @@ for (const c of SMOKE_CASES) {
   const started = performance.now();
   let firstMs = null;
   try {
-    const result = await translator.translate({
+    const result = await translatorFor(c.domain).translate({
       text: c.text,
       from: c.from,
       to: c.to,

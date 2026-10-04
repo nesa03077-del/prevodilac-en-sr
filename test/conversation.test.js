@@ -286,3 +286,142 @@ describe('describeStatus', () => {
     expect(describeStatus({ ...base, listening: 'en', speaking: true })).toBe('Izgovaram prevod…');
   });
 });
+
+describe('dispečerske mogućnosti', () => {
+  it('prevod koji je već stigao uživo koristi se odmah, bez novog zahteva', async () => {
+    const { conv, h, translator, spoken } = setup();
+    conv.startListening('en');
+    h().onInterim('Where are you right now');
+    await vi.waitFor(() => expect(conv.getState().interimTranslation).toBe('[sr] Where are you right now'));
+    expect(translator.translate).toHaveBeenCalledTimes(1);
+    h().onFinal('Where are you right now?'); // ista rečenica, drugačija interpunkcija
+    expect(conv.getState().items[0]).toMatchObject({
+      status: 'done', translation: '[sr] Where are you right now', reused: true,
+    });
+    expect(translator.translate).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(spoken).toHaveLength(1));
+    expect(spoken[0].text).toBe('[sr] Where are you right now');
+  });
+
+  it('drugačiji tekst se ne koristi ponovo, već se prevodi iznova', async () => {
+    const { conv, h, translator } = setup({ speak: false });
+    conv.startListening('en');
+    h().onInterim('Where are you');
+    await vi.waitFor(() => expect(conv.getState().interimTranslation).toBe('[sr] Where are you'));
+    h().onFinal('Where are you going');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('done'));
+    expect(conv.getState().items[0].reused).toBe(false);
+    expect(conv.getState().items[0].translation).toBe('[sr] Where are you going');
+    expect(translator.translate).toHaveBeenCalledTimes(2);
+  });
+
+  it('brojevi se proveravaju na svakoj stavci', async () => {
+    const translator = {
+      translate: vi.fn(async ({ text }) => ({ text: text.includes('48213') ? 'Tovar 48231 u 14:30' : 'Tovar 99' })),
+    };
+    const { conv, h } = setup({ speak: false, translator });
+    conv.startListening('en');
+    h().onFinal('Load 48213 at 14:30');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('done'));
+    const n = conv.getState().items[0].numbers;
+    expect(n.checked).toBe(true);
+    expect(n.ok).toBe(false);
+    expect(n.missing).toEqual(['48213']);
+    expect(n.extra).toEqual(['48231']);
+  });
+
+  it('ispravni brojevi nemaju upozorenje', async () => {
+    const translator = { translate: vi.fn(async () => ({ text: 'Tovar 48213 u 14:30' })) };
+    const { conv, h } = setup({ speak: false, translator });
+    conv.startListening('en');
+    h().onFinal('Load 48213 at 14:30');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('done'));
+    expect(conv.getState().items[0].numbers.ok).toBe(true);
+  });
+
+  it('provera prevodom nazad vraća prevod na jezik govornika i poredi brojeve', async () => {
+    const calls2 = [];
+    const translator = {
+      translate: vi.fn(async (req) => {
+        calls2.push(req);
+        return { text: req.to === 'sr' ? 'Tovar 123' : 'Load 124' };
+      }),
+    };
+    const { conv, h } = setup({ speak: false, translator });
+    conv.startListening('en');
+    h().onFinal('Load 123');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('done'));
+    const id = conv.getState().items[0].id;
+    conv.verify(id);
+    expect(conv.getState().items[0].check.status).toBe('translating');
+    await vi.waitFor(() => expect(conv.getState().items[0].check.status).toBe('done'));
+    expect(calls2.at(-1)).toMatchObject({ text: 'Tovar 123', from: 'sr', to: 'en', context: [] });
+    const check = conv.getState().items[0].check;
+    expect(check.text).toBe('Load 124');
+    expect(check.numbers.ok).toBe(false);
+    conv.verify(id); // dvostruki pritisak ne pravi novi zahtev dok traje
+  });
+
+  it('greška provere se beleži na stavci', async () => {
+    let n = 0;
+    const translator = {
+      translate: vi.fn(async () => {
+        if (++n === 2) throw new TranslationError('network', 'Nema veze sa serverom.');
+        return { text: 'Zdravo' };
+      }),
+    };
+    const { conv, h } = setup({ speak: false, translator });
+    conv.startListening('en');
+    h().onFinal('Hello');
+    await vi.waitFor(() => expect(conv.getState().items[0].status).toBe('done'));
+    conv.verify(conv.getState().items[0].id);
+    await vi.waitFor(() => expect(conv.getState().items[0].check.status).toBe('error'));
+    expect(conv.getState().items[0].check.error).toBe('Nema veze sa serverom.');
+  });
+
+  it('provera se ne radi za nedovršenu stavku ni za gotovu frazu', async () => {
+    const { conv, translator } = setup();
+    conv.addPhrase({ en: 'Where are you?', sr: 'Gde si?' });
+    conv.verify(conv.getState().items[0].id);
+    conv.verify(9999);
+    await settle();
+    expect(translator.translate).not.toHaveBeenCalled();
+  });
+
+  it('gotova fraza se izgovara odmah na srpskom, bez prevoda', async () => {
+    const { conv, spoken, translator, recognizer } = setup();
+    conv.startListening('en');
+    conv.addPhrase({ en: 'Where are you right now?', sr: 'Gde si sada?' });
+    expect(conv.getState().items[0]).toMatchObject({
+      fixed: true, status: 'done', from: 'en', to: 'sr', source: 'Where are you right now?', translation: 'Gde si sada?',
+    });
+    await vi.waitFor(() => expect(spoken).toEqual([{ text: 'Gde si sada?', lang: 'sr' }]));
+    expect(translator.translate).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(recognizer.resume).toHaveBeenCalled());
+    expect(recognizer.suspend).toHaveBeenCalled();
+  });
+
+  it('gotova fraza sa isključenim izgovorom samo se prikazuje', async () => {
+    const { conv, speaker } = setup({ speak: false });
+    conv.addPhrase({ en: 'Thanks.', sr: 'Hvala.' });
+    await settle();
+    expect(speaker.speak).not.toHaveBeenCalled();
+    expect(conv.getState().items[0].translation).toBe('Hvala.');
+  });
+
+  it('neispravna fraza je greška', () => {
+    const { conv } = setup();
+    expect(() => conv.addPhrase({ en: 'x' })).toThrow();
+    expect(() => conv.addPhrase(null)).toThrow();
+  });
+
+  it('gotove fraze ne ulaze u kontekst prevoda', async () => {
+    const { conv, h, calls } = setup({ speak: false });
+    conv.addPhrase({ en: 'Where are you?', sr: 'Gde si?' });
+    conv.startListening('sr');
+    h().onFinal('U Dalasu sam');
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    // fraza je 'done', pa je izvorni tekst deo konteksta kao i svaka druga rečenica razgovora
+    expect(calls[0].context).toEqual(['Where are you?']);
+  });
+});

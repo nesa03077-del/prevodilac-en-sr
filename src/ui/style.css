@@ -214,6 +214,7 @@ dialog::backdrop { background: rgb(8 12 16 / 0.55); }
 .views { align-self: flex-start; }
 .view { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; min-height: 0; }
 .view[hidden] { display: none; }
+.talk { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; min-height: 0; }
 
 /* Razgovor */
 .status { margin: 0; min-height: 1.5rem; color: var(--muted); font-size: 0.9375rem; }
@@ -275,3 +276,62 @@ dialog::backdrop { background: rgb(8 12 16 / 0.55); }
 .talk-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; cursor: pointer; }
 .check input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
+
+/* Dispečerski režim */
+.tag.warn { color: var(--danger); background: var(--danger-soft); }
+.top .tag { margin-left: auto; }
+
+mark.num {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: inherit; font-weight: 650; border-radius: 4px; padding: 0 0.15em;
+  font-variant-numeric: tabular-nums;
+}
+.turn .warn {
+  margin: 0.15rem 0 0; padding: 0.4rem 0.6rem; border-radius: 8px;
+  background: var(--danger-soft); color: var(--danger); font-size: 0.875rem; font-weight: 600;
+}
+.turn.fixed { outline: 1px solid var(--accent); outline-offset: -1px; }
+.turn .verify { align-self: flex-start; margin-top: 0.2rem; }
+.turn .check { margin-top: 0.3rem; padding-top: 0.4rem; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 0.15rem; }
+.turn .check.pending, .turn .back { color: var(--muted); font-size: 0.9375rem; }
+
+kbd {
+  display: inline-block; min-width: 1.25em; padding: 0 0.3em; text-align: center;
+  font: 600 0.75rem/1.4 var(--font); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 4px; background: var(--bg);
+}
+
+.phrases { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 0.75rem; }
+.phrases > summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.phrases .hint { font-weight: 400; font-size: 0.8125rem; color: var(--muted); }
+#phrase-list { display: flex; flex-direction: column; gap: 0.75rem; padding-bottom: 0.75rem; max-height: 14rem; overflow-y: auto; }
+.phrase-group h3 { margin: 0 0 0.35rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.phrase-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.phrase {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; text-align: left;
+  padding: 0.4rem 0.7rem; min-height: 2.5rem; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.phrase:hover { border-color: var(--accent); }
+.phrase small { color: var(--muted); font-size: 0.75rem; }
+
+.talk-tools .spacer { flex: 1; }
+
+.mini-placeholder {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 1rem; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--panel);
+}
+.mini-placeholder p { margin: 0; color: var(--muted); }
+
+/* Mali plutajući prozor (stoji iznad ostalih programa) */
+html.mini body { min-height: 100%; }
+html.mini .app { padding-inline: 10px; padding-block: 8px; gap: 0.5rem; max-width: none; height: 100%; }
+html.mini .talk { gap: 0.5rem; }
+html.mini .log { min-height: 6rem; max-height: none; padding: 0.5rem; gap: 0.5rem; }
+html.mini .turn { max-width: 96%; padding: 0.5rem 0.65rem; }
+html.mini .turn .tr { font-size: 1.125rem; }
+html.mini .status { font-size: 0.875rem; min-height: 1.25rem; }
+html.mini .talk-btn { min-height: 3.25rem; }
+html.mini .talk-btn small { display: none; }
+html.mini .talk-tools { gap: 0.35rem; }
+@media (max-width: 520px), (pointer: coarse) { kbd { display: none; } }

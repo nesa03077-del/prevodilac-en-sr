@@ -66,12 +66,41 @@ Claude API-ja; srpski prevod uvek latinicom; zaseban repo `prevodilac-en-sr`.
 - Poznata ograničenja: Firefox nema prepoznavanje govora; Chrome šalje zvuk svom servisu za
   prepoznavanje; na nekim telefonima nema srpskog glasa
 
-## [ ] Korak 4 - PWA
+## [x] Korak 4 - Dispečerski režim i instalacija (PWA)
 
-- Instalacija na početni ekran (manifest, ikonica, service worker za brzo učitavanje)
-- Objavljivanje (npr. GitHub Pages) da bi radilo preko HTTPS-a na telefonu
+Odluke korisnika: dispečer kamiona u SAD (logistika), samo mikrofon, mali prozor koji stoji
+iznad ostalih programa, podaci smeju van firme. Detalji i pravila: skil `prevodilac-dispecer`.
 
-## [ ] Korak 5 - Android aplikacija
+- Tačnost: oblast "Kamionski transport i logistika (SAD)" (podrazumevana) dodaje rečnik i pravila
+  u prompt (brojevi, adrese i jedinice tačno, engleski stručni izrazi, vozački žargon); mašinska
+  provera brojeva (`numbers.js`) sa crvenim upozorenjem i istaknutim ciframa; dugme "Proveri
+  prevodom nazad"
+- Brzina: gotove fraze (`phrases.js`, 30 fraza u 5 grupa) se izgovaraju odmah bez mreže;
+  prevod koji je stigao uživo koristi se bez novog zahteva; rok 20 s i jedan ponovni pokušaj;
+  prečice 1 / 2 / Esc; ekran ostaje budan dok se sluša
+- Mali prozor: Document Picture-in-Picture (`mini-window.js`), razgovor se prebacuje u
+  plutajući prozor iznad ostalih programa; mikrofon radi dok je otvoren
+- PWA: manifest, ikone, servisni radnik (pravi ga `vite.config.js`), otvara se bez interneta,
+  oznaka "Bez interneta"
+- Objava: `.github/workflows/pages.yml` (GitHub Pages)
+- Provera: 177 testova i 138 provera u Chromium-u, uključujući mali prozor (lažni PiP), PWA i rad
+  bez interneta
+- Nije provereno: pravi odgovori Claude-a (`npm run smoke`, 19 slučajeva od kojih 7 kamionskih,
+  nema ključa u okruženju), pravi Picture-in-Picture prozor, pravi mikrofon i glasovi
+- Za pregled od strane maternjeg govornika: srpski tekst brzih fraza (`phrases.js`) i rečnik u
+  promptu (`prompt.js`)
+- Ograničenja: mikrofon se čuje samo dok je aplikacija (ili mali prozor) otvorena; ne hvata glas
+  pozivaoca iz slušalica (za to treba virtuelni audio kabl i plaćeno prepoznavanje govora);
+  Firefox nema prepoznavanje govora ni mali prozor
+
+## [ ] Korak 5 - Objava i prva upotreba u poslu
+
+- Uključiti GitHub Pages (Settings -> Pages -> Source: GitHub Actions) i otvoriti HTTPS adresu
+- Pregled fraza i rečnika od strane maternjeg govornika koji vozi u SAD
+- `npm run smoke` sa pravim ključem; izmeriti vreme do prvog dela prevoda; po potrebi Sonnet 5.5
+- Pilot u pravom poslu, beleženje grešaka koje dispečer primeti (svaka ide u `smoke-cases.js`)
+
+## [ ] Korak 6 - Android aplikacija (po potrebi)
 
 - Omotač oko web verzije (npr. Capacitor), dozvola za mikrofon, APK
 - Novi skil `prevodilac-android` pre početka koraka

@@ -1,13 +1,26 @@
-// Uputstva za model. Sistemski prompt zavisi samo od smera prevoda, pa je
-// isti bajt-po-bajt za sve zahteve u istom smeru (stabilan prefiks).
+// Uputstva za model. Sistemski prompt zavisi samo od smera prevoda i oblasti,
+// pa je isti bajt-po-bajt za sve zahteve u istom smeru i oblasti (stabilan prefiks).
+
+import { isDomain } from './domains.js';
 
 export const LANGUAGE_NAMES = { en: 'English', sr: 'Serbian' };
 
+// Rečnik i pravila za dispečere kamiona u SAD. Vozači iz Srbije govore srpski
+// sa mnogo engleskih reči, a dispečer mora da dobije tačne brojeve i adrese.
+const TRUCKING_LINES = [
+  '',
+  'Domain: US trucking and freight dispatch. The speakers are a dispatcher (English) and a truck driver (Serbian).',
+  '- Keep these industry terms in English inside Serbian sentences, because drivers and dispatchers use them: load, BOL, POD, rate confirmation (rate con), detention, lumper, layover, TONU, deadhead, bobtail, reefer, dry van, flatbed, tarp, shipper, receiver, consignee, broker, lane, appointment, drop and hook, live load, live unload, ETA, ELD, HOS, DOT, CDL, scale, weigh station, hazmat, roadside, truck stop.',
+  '- Drivers speak Serbian mixed with English trucking words, often spelled the Serbian way (for example "pikap" = pickup, "lod" = load, "bol", "delivery", "dispeč"). Read them as the English trucking term and write the proper English term when translating into English.',
+  '- Copy exactly: numbers, load / PO / BOL / trailer / truck numbers, addresses, ZIP codes, phone numbers, times, dates, mileage, weights, temperatures, exit numbers, highway names and place names. Write numbers as digits. Never round, reformat or convert units (miles stay miles, lbs stay lbs, degrees Fahrenheit stay Fahrenheit), and never translate city or street names.',
+  '- Keep the tone short and direct, as dispatchers and drivers talk. Do not add politeness, softening or explanations that are not in the source.',
+];
+
 /**
- * @param {{from:'en'|'sr', to:'en'|'sr'}} direction
+ * @param {{from:'en'|'sr', to:'en'|'sr', domain?: string}} options
  * @returns {string}
  */
-export function buildSystemPrompt({ from, to }) {
+export function buildSystemPrompt({ from, to, domain = 'general' }) {
   if (!LANGUAGE_NAMES[from] || !LANGUAGE_NAMES[to] || from === to) {
     throw new Error(`Nepodržan smer prevoda: ${from} -> ${to}`);
   }
@@ -37,6 +50,8 @@ export function buildSystemPrompt({ from, to }) {
       '- Use natural, everyday English.',
     );
   }
+  if (domain === 'trucking') lines.push(...TRUCKING_LINES);
+  else if (!isDomain(domain)) throw new Error(`Nepoznata oblast: ${domain}`);
   return lines.join('\n');
 }
 

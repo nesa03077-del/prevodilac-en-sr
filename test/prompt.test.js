@@ -41,3 +41,34 @@ describe('buildUserMessage', () => {
     expect(m).toBe('<context>\nHow are you?\nFine.\n</context>\n\n<source>\nAnd you?\n</source>');
   });
 });
+
+describe('oblast: kamionski transport', () => {
+  const trucking = buildSystemPrompt({ from: 'en', to: 'sr', domain: 'trucking' });
+  const general = buildSystemPrompt({ from: 'en', to: 'sr' });
+
+  it('opšti prompt nema rečnik kamiona', () => {
+    expect(general).not.toContain('trucking');
+    expect(buildSystemPrompt({ from: 'en', to: 'sr', domain: 'general' })).toBe(general);
+  });
+
+  it('kamionski prompt dodaje rečnik, tačnost brojeva i jedinica', () => {
+    expect(trucking.startsWith(general)).toBe(true);
+    for (const term of ['BOL', 'POD', 'detention', 'lumper', 'reefer', 'HOS', 'rate confirmation']) {
+      expect(trucking).toContain(term);
+    }
+    expect(trucking).toContain('Copy exactly');
+    expect(trucking).toContain('miles stay miles');
+    expect(trucking).toContain('pikap');
+  });
+
+  it('radi u oba smera i ostaje stabilan', () => {
+    const back = buildSystemPrompt({ from: 'sr', to: 'en', domain: 'trucking' });
+    expect(back).toContain('from Serbian into English');
+    expect(back).toContain('Copy exactly');
+    expect(buildSystemPrompt({ from: 'sr', to: 'en', domain: 'trucking' })).toBe(back);
+  });
+
+  it('nepoznata oblast je greška', () => {
+    expect(() => buildSystemPrompt({ from: 'en', to: 'sr', domain: 'kuvanje' })).toThrow();
+  });
+});

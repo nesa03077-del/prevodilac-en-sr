@@ -31,9 +31,10 @@ describe('normalizeSettings', () => {
   });
 
   it('odbacuje nepoznat model i smer, seče razmake u ključu', () => {
-    expect(normalizeSettings({ apiKey: '  sk-ant-x  ', model: 'gpt-4', mode: 'de-en', view: 'x', speak: 'da' })).toEqual({
+    expect(normalizeSettings({ apiKey: '  sk-ant-x  ', model: 'gpt-4', domain: 'x', mode: 'de-en', view: 'x', speak: 'da' })).toEqual({
       apiKey: 'sk-ant-x',
       model: DEFAULT_SETTINGS.model,
+      domain: 'trucking',
       mode: 'auto',
       view: 'type',
       speak: true,
@@ -41,7 +42,7 @@ describe('normalizeSettings', () => {
   });
 
   it('zadržava ispravne vrednosti', () => {
-    const s = { apiKey: 'k', model: 'claude-haiku-4-5', mode: 'sr-en', view: 'talk', speak: false };
+    const s = { apiKey: 'k', model: 'claude-haiku-4-5', domain: 'general', mode: 'sr-en', view: 'talk', speak: false };
     expect(normalizeSettings(s)).toEqual(s);
   });
 });
@@ -49,7 +50,7 @@ describe('normalizeSettings', () => {
 describe('createSettingsStore', () => {
   it('čuva i učitava', () => {
     const store = createSettingsStore(memoryStorage());
-    const saved = { apiKey: 'abc', model: 'claude-sonnet-5-5', mode: 'en-sr', view: 'talk', speak: false };
+    const saved = { apiKey: 'abc', model: 'claude-sonnet-5-5', domain: 'general', mode: 'en-sr', view: 'talk', speak: false };
     expect(store.save(saved)).toBe(true);
     expect(store.load()).toEqual(saved);
   });

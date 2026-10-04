@@ -33,6 +33,7 @@ export function createLiveSession({
   let pendingText = '';
   let direction = { from: 'en', to: 'sr' };
   let lastDone = null; // { text, from, to } poslednjeg završenog prevoda
+  let lastResult = null; // { source, translation, from, to } poslednjeg završenog prevoda
 
   function cancelTimer() {
     if (timer !== null) {
@@ -57,6 +58,7 @@ export function createLiveSession({
 
     if (!source) {
       lastDone = null;
+      lastResult = null;
       onUpdate({ source: '', translation: '', ...direction, done: true });
       return;
     }
@@ -83,6 +85,7 @@ export function createLiveSession({
       });
       if (id !== seq) return;
       lastDone = { text: source, from, to };
+      lastResult = { source, translation: result.text, from, to };
       onUpdate({ source, translation: result.text, from, to, done: true });
     } catch (err) {
       if (id !== seq || err?.code === 'aborted') return;
@@ -113,6 +116,11 @@ export function createLiveSession({
     /** Zaboravi poslednji prevod, npr. posle promene smera ili modela. */
     reset() {
       lastDone = null;
+      lastResult = null;
+    },
+    /** Poslednji završen prevod (za ponovnu upotrebu kad se tekst ne menja). */
+    get lastResult() {
+      return lastResult;
     },
     get direction() {
       return { ...direction };
