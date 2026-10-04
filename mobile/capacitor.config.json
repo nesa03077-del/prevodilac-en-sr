@@ -1,0 +1,11 @@
+{
+  "appId": "rs.prevodilac.mobile",
+  "appName": "Prevodilac",
+  "webDir": "../dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

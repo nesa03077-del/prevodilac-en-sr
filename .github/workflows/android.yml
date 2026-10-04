@@ -1,0 +1,43 @@
+# Gradi probni Android APK (debug) i čuva ga uz izvršavanje.
+# Pokretanje: Actions -> "Android aplikacija" -> Run workflow; APK je u Artifacts (prevodilac-android).
+# Debug APK nije potpisan za Play prodavnicu; instalira se ručno (dozvoliti instalaciju iz nepoznatih izvora).
+name: Android aplikacija
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Capacitor
+        working-directory: mobile
+        run: |
+          npm ci
+          npx cap sync android
+      - name: Gradle
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prevodilac-android
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

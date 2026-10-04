@@ -1,0 +1,15 @@
+{
+  "name": "prevodilac-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prevodilac EN-SR: Android aplikacija (Capacitor omotač oko web verzije)",
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
