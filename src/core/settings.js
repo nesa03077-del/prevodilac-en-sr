@@ -7,7 +7,9 @@ import { DEFAULT_MODEL_ID, MODELS } from './models.js';
 
 export const STORAGE_KEY = 'prevodilac.podesavanja.v1';
 export const MODES = ['auto', 'en-sr', 'sr-en'];
-export const VIEWS = ['type', 'talk'];
+export const VIEWS = ['type', 'talk', 'live'];
+export const LIVE_MODES = ['two-streams', 'single-mic'];
+export const DEFAULT_AZURE_REGION = 'westeurope';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   apiKey: '',
@@ -16,7 +18,25 @@ export const DEFAULT_SETTINGS = Object.freeze({
   mode: 'auto',
   view: 'type',
   speak: true, // izgovaraj prevod u razgovoru
+  // Prevođenje uživo (Azure Speech za prepoznavanje govora i glas)
+  azureKey: '',
+  azureRegion: DEFAULT_AZURE_REGION,
+  liveMyLang: 'sr', // jezik kojim ja govorim
+  liveMode: 'two-streams', // 'two-streams' (moj mikrofon + zvuk poziva) ili 'single-mic'
+  liveSpeakToOther: true, // izgovori prevod sagovorniku
+  liveSpeakToMe: false, // izgovori prevod meni
+  outputDeviceId: '', // izlaz za glas sagovorniku (npr. virtuelni kabl)
 });
+
+/** Region Azure resursa, npr. westeurope, eastus, germanywestcentral. */
+export function isAzureRegion(value) {
+  return typeof value === 'string' && /^[a-z0-9]{3,30}$/i.test(value.trim());
+}
+
+/** Da li tekst liči na Azure Speech ključ (32 ili više slova i cifara). */
+export function looksLikeAzureKey(key) {
+  return /^[A-Za-z0-9]{32,100}$/.test((key ?? '').trim());
+}
 
 /** Čisti učitane vrednosti: nepoznat model ili smer vraćamo na podrazumevani. */
 export function normalizeSettings(raw) {
@@ -28,6 +48,13 @@ export function normalizeSettings(raw) {
     mode: MODES.includes(s.mode) ? s.mode : DEFAULT_SETTINGS.mode,
     view: VIEWS.includes(s.view) ? s.view : DEFAULT_SETTINGS.view,
     speak: typeof s.speak === 'boolean' ? s.speak : DEFAULT_SETTINGS.speak,
+    azureKey: typeof s.azureKey === 'string' ? s.azureKey.trim() : DEFAULT_SETTINGS.azureKey,
+    azureRegion: isAzureRegion(s.azureRegion) ? s.azureRegion.trim().toLowerCase() : DEFAULT_SETTINGS.azureRegion,
+    liveMyLang: s.liveMyLang === 'en' ? 'en' : 'sr',
+    liveMode: LIVE_MODES.includes(s.liveMode) ? s.liveMode : DEFAULT_SETTINGS.liveMode,
+    liveSpeakToOther: typeof s.liveSpeakToOther === 'boolean' ? s.liveSpeakToOther : DEFAULT_SETTINGS.liveSpeakToOther,
+    liveSpeakToMe: typeof s.liveSpeakToMe === 'boolean' ? s.liveSpeakToMe : DEFAULT_SETTINGS.liveSpeakToMe,
+    outputDeviceId: typeof s.outputDeviceId === 'string' ? s.outputDeviceId.slice(0, 300) : '',
   };
 }
 

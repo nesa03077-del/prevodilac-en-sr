@@ -16,6 +16,7 @@ const item = (id, label, status, detail) => ({ id, label, status, detail });
  *   getTranslator?: () => ({ translate: Function } | null),
  *   voiceWaitMs?: number,
  *   supportsMini?: (win: Window) => boolean,
+ *   testAzure?: (() => Promise<{ ok: boolean, ms?: number, message?: string }>) | null,
  * }} options
  * @returns {Promise<Array<{id:string,label:string,status:'ok'|'warn'|'fail'|'info',detail:string}>>}
  */
@@ -25,6 +26,7 @@ export async function runDeviceChecks({
   getTranslator = () => null,
   voiceWaitMs = 1500,
   supportsMini = (w) => Boolean(w && 'documentPictureInPicture' in w),
+  testAzure = undefined,
 } = {}) {
   const out = [];
 
@@ -97,6 +99,32 @@ export async function runDeviceChecks({
       ? item('install', 'Instalirana aplikacija', 'ok', 'Aplikacija je pokrenuta kao instalirana.')
       : item('install', 'Instalirana aplikacija', 'info', 'Nije instalirana. Preporučeno: ikona za instalaciju pored adrese.'),
   );
+
+  // Prevođenje uživo: zvuk poziva, izlazni uređaj, Azure veza
+  out.push(
+    typeof nav.mediaDevices?.getDisplayMedia === 'function'
+      ? item('live-capture', 'Zvuk poziva (deljenje ekrana)', 'ok', 'Može da se uhvati zvuk poziva, uz izbor ekrana ili kartice.')
+      : item('live-capture', 'Zvuk poziva (deljenje ekrana)', 'warn', 'Ovaj uređaj ne može da uhvati zvuk poziva. Za prevođenje uživo koristite isti mikrofon i sagovornika na zvučniku.'),
+  );
+  out.push(
+    typeof win.HTMLMediaElement?.prototype?.setSinkId === 'function'
+      ? item('live-sink', 'Izbor izlaza za glas', 'ok', 'Engleski glas može da se pošalje na izabrani uređaj (npr. u poziv).')
+      : item('live-sink', 'Izbor izlaza za glas', 'info', 'Izlaz za glas nije moguće birati; glas ide na podrazumevani uređaj.'),
+  );
+  if (testAzure === null) {
+    out.push(item('azure', 'Azure govor (prevođenje uživo)', 'info', 'Nema Azure ključa. Treba samo za prevođenje uživo; ostali režimi rade bez njega.'));
+  } else if (typeof testAzure === 'function') {
+    try {
+      const r = await testAzure();
+      out.push(
+        r.ok
+          ? item('azure', 'Azure govor (prevođenje uživo)', 'ok', `Veza i ključ rade (probni glas za ${r.ms ?? '?'} ms).`)
+          : item('azure', 'Azure govor (prevođenje uživo)', 'fail', r.message || 'Azure govor ne radi.'),
+      );
+    } catch (err) {
+      out.push(item('azure', 'Azure govor (prevođenje uživo)', 'fail', err?.message || 'Azure govor ne radi.'));
+    }
+  }
 
   // Pravi prevod: proverava ključ, vezu i brzinu odjednom
   const translator = getTranslator();

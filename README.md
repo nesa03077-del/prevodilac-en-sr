@@ -19,6 +19,11 @@ Pogled "Razgovor" radi u Chrome-u i Edge-u (potreban je mikrofon). Namenjen je d
 
 Za prvu upotrebu u poslu pogledajte [PILOT.md](PILOT.md).
 
+Pogled "Uživo" (probna verzija) prevodi bez pritiskanja dugmadi: govorite u mikrofon, a zvuk
+sagovornika iz poziva se prevodi na srpski. Radi preko Azure servisa za govor; ključ i region se unose
+u podešavanjima ([docs/azure-govor.md](docs/azure-govor.md)). Windows i Android aplikacije su u planu
+(korak 7 i 8 u ROADMAP.md).
+
 Pri prvom otvaranju aplikacija traži Anthropic API ključ. Ključ ostaje samo u vašem
 pregledaču (localStorage) i šalje se samo na api.anthropic.com.
 
@@ -34,6 +39,7 @@ ili effort: `MODEL=claude-sonnet-5-5 EFFORT=low npm run smoke`.
 | `src/core/speech-recognizer.js`, `speaker.js`, `conversation.js` | Razgovor govorom: prepoznavanje, izgovor, tok razgovora |
 | `src/core/numbers.js`, `phrases.js`, `domains.js` | Provera brojeva, gotove fraze, oblasti (rečnik) |
 | `src/core/diagnostics.js`, `metrics.js`, `reports.js` | Provera uređaja, merenje brzine, prijave grešaka |
+| `src/core/live-interpreter.js`, `azure-speech.js`, `audio-capture.js`, `media-streams.js`, `live-voice.js`, `audio-player.js`, `pcm.js` | Prevođenje uživo: hvatanje zvuka, Azure govor, glas, tok prevođenja |
 | `PILOT.md`, `docs/pregled-za-govornika.md` | Uputstvo za pilot, spisak za maternjeg govornika |
 | `src/ui/mini-window.js`, `wakelock.js` | Mali prozor iznad ostalih programa, ekran ostaje budan |
 | `public/`, `vite.config.js` | Manifest, ikone, servisni radnik (pravi se pri gradnji) |

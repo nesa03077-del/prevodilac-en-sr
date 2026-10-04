@@ -24,6 +24,7 @@
       <legend class="sr-only">Način rada</legend>
       <input type="radio" name="view" id="view-type" value="type"><label for="view-type">Kucanje</label>
       <input type="radio" name="view" id="view-talk" value="talk"><label for="view-talk">Razgovor</label>
+      <input type="radio" name="view" id="view-live" value="live"><label for="view-live">Uživo</label>
     </fieldset>
 
     <div id="typing" class="view">
@@ -89,7 +90,49 @@
     </div>
     </div>
 
-    <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju. Govor prepoznaje vaš pregledač (Chrome i Edge ga šalju svom servisu za prepoznavanje).</p>
+    <div id="live-slot" class="view" hidden>
+    <div id="live" class="talk">
+      <p class="notice info live-beta">Probna verzija. Prevodi i izgovara bez pritiskanja dugmadi; radi preko Azure servisa za govor (ključ se unosi u podešavanjima).</p>
+      <p id="live-alert" class="notice" role="alert" hidden></p>
+      <p id="live-status" class="status" role="status" aria-live="polite">Pritisnite "Pokreni" da počne prevođenje.</p>
+      <div class="live-bar">
+        <button type="button" id="live-start" class="primary big" aria-pressed="false">Pokreni</button>
+        <button type="button" id="live-clear" class="ghost" disabled>Obriši</button>
+      </div>
+      <div class="meters">
+        <span id="meter-me-label" class="who" hidden>Moj glas</span><span id="meter-me" class="meter" hidden></span>
+        <span id="meter-other-label" class="who" hidden>Zvuk poziva</span><span id="meter-other" class="meter" hidden></span>
+      </div>
+      <ol id="live-log" class="log" aria-label="Prevođenje uživo" data-placeholder="Pritisnite Pokreni. Govorite svoj jezik, a sagovornika čujete preko poziva: prevod se pojavljuje odmah i izgovara se kad rečenica završi."></ol>
+      <details class="phrases live-options" open>
+        <summary>Podešavanja prevođenja</summary>
+        <fieldset class="field">
+          <legend>Ja govorim</legend>
+          <div class="seg">
+            <input type="radio" name="live-my-lang" id="live-my-sr" value="sr"><label for="live-my-sr">Srpski</label>
+            <input type="radio" name="live-my-lang" id="live-my-en" value="en"><label for="live-my-en">Engleski</label>
+          </div>
+        </fieldset>
+        <fieldset class="field">
+          <legend>Zvuk sagovornika</legend>
+          <div class="seg">
+            <input type="radio" name="live-mode" id="live-mode-two" value="two-streams"><label for="live-mode-two">Zvuk poziva</label>
+            <input type="radio" name="live-mode" id="live-mode-one" value="single-mic"><label for="live-mode-one">Isti mikrofon</label>
+          </div>
+          <p class="help" id="live-mode-help"></p>
+        </fieldset>
+        <label class="check"><input type="checkbox" id="live-speak-other"> Izgovori sagovorniku prevod na engleski</label>
+        <label class="check"><input type="checkbox" id="live-speak-me"> Izgovori meni prevod na srpski</label>
+        <div class="field" id="live-output-row">
+          <label for="live-output">Gde ide glas za sagovornika</label>
+          <select id="live-output"></select>
+          <p class="help">Za poziv izaberite virtuelni audio kabl (npr. VB-Cable), pa ga u aplikaciji za poziv podesite kao mikrofon.</p>
+        </div>
+      </details>
+    </div>
+    </div>
+
+    <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju. Govor u režimu "Razgovor" prepoznaje vaš pregledač (Chrome i Edge ga šalju svom servisu za prepoznavanje). U režimu "Uživo" zvuk ide na Microsoft Azure servis za govor.</p>
   </div>
 
   <dialog id="settings" aria-labelledby="settings-title">
@@ -102,6 +145,16 @@
         <p class="help" id="key-help">Ključ se čuva samo u ovom pregledaču i šalje se samo na api.anthropic.com.</p>
         <p class="error" id="key-error" role="alert" hidden></p>
       </div>
+
+      <section class="field" aria-labelledby="azure-title">
+        <h3 id="azure-title">Azure govor (za prevođenje uživo)</h3>
+        <label for="azure-key" class="plain-label">Azure ključ</label>
+        <input type="password" id="azure-key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Ključ resursa Speech">
+        <label for="azure-region" class="plain-label">Region</label>
+        <input type="text" id="azure-region" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="westeurope">
+        <p class="help" id="azure-help">Treba samo za režim "Uživo". Ključ se čuva samo u ovom pregledaču. Uputstvo: docs/azure-govor.md.</p>
+        <p class="error" id="azure-error" role="alert" hidden></p>
+      </section>
 
       <fieldset class="field models">
         <legend>Oblast prevoda</legend>

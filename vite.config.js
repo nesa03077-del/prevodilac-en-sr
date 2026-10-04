@@ -4,13 +4,25 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 
 // Sigurnosna politika samo u završnoj verziji (razvojni server ubacuje svoje skripte).
-// Stranica sme da se javlja jedino na Anthropic API.
+// Stranica sme da se javlja jedino na Anthropic API i na Azure servis za govor (samo režim "Uživo").
+const CONNECT_SRC = [
+  'https://api.anthropic.com',
+  'https://*.stt.speech.microsoft.com',
+  'wss://*.stt.speech.microsoft.com',
+  'https://*.tts.speech.microsoft.com',
+  'wss://*.tts.speech.microsoft.com',
+  'https://*.api.cognitive.microsoft.com',
+  'https://*.cognitiveservices.azure.com',
+  'wss://*.cognitiveservices.azure.com',
+].join(' ');
+
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
   "img-src 'self' data:",
-  "connect-src https://api.anthropic.com",
+  "media-src blob:",
+  `connect-src ${CONNECT_SRC}`,
   "base-uri 'none'",
   "form-action 'none'",
 ].join('; ');

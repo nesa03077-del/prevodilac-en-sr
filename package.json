@@ -15,7 +15,8 @@
     "review-sheet": "node scripts/export-review-sheet.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0"
+    "@anthropic-ai/sdk": "^0.131.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.52.0"
   },
   "devDependencies": {
     "vite": "^8.3.2",

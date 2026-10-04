@@ -4,7 +4,7 @@ import { createFakeRecognitionCtor, createFakeSynth } from './fake-speech.js';
 
 const v = (lang, name = lang) => ({ lang, name });
 
-function env({ secure = true, online = true, speech = true, voices = [v('en-US'), v('sr-RS')], permission = 'granted', devices = [{ kind: 'audioinput' }], mini = true, wake = true, standalone = false, synthesis = true } = {}) {
+function env({ secure = true, online = true, speech = true, voices = [v('en-US'), v('sr-RS')], permission = 'granted', devices = [{ kind: 'audioinput' }], mini = true, wake = true, standalone = false, synthesis = true, display = true, sink = true } = {}) {
   const { synth, Utterance } = createFakeSynth({ voices });
   const win = {
     isSecureContext: secure,
@@ -12,11 +12,12 @@ function env({ secure = true, online = true, speech = true, voices = [v('en-US')
     ...(speech ? { SpeechRecognition: createFakeRecognitionCtor() } : {}),
     ...(synthesis ? { speechSynthesis: synth, SpeechSynthesisUtterance: Utterance } : {}),
     ...(mini ? { documentPictureInPicture: {} } : {}),
+    ...(sink ? { HTMLMediaElement: { prototype: { setSinkId() {} } } } : {}),
   };
   const nav = {
     onLine: online,
     permissions: permission === 'unsupported' ? undefined : { query: async () => ({ state: permission }) },
-    mediaDevices: devices === null ? undefined : { enumerateDevices: async () => devices },
+    mediaDevices: devices === null ? undefined : { enumerateDevices: async () => devices, ...(display ? { getDisplayMedia() {} } : {}) },
     ...(wake ? { wakeLock: {} } : {}),
   };
   return { win, nav };
@@ -36,7 +37,7 @@ describe('runDeviceChecks', () => {
   it('redosled i broj stavki su stabilni', async () => {
     const results = await runDeviceChecks({ ...env(), getTranslator: () => okTranslator, voiceWaitMs: 5 });
     expect(results.map((r) => r.id)).toEqual([
-      'secure', 'online', 'speech', 'mic-permission', 'mic-device', 'voice-sr', 'voice-en', 'mini', 'wake', 'install', 'translate',
+      'secure', 'online', 'speech', 'mic-permission', 'mic-device', 'voice-sr', 'voice-en', 'mini', 'wake', 'install', 'live-capture', 'live-sink', 'translate',
     ]);
     for (const r of results) {
       expect(['ok', 'warn', 'fail', 'info']).toContain(r.status);
@@ -118,6 +119,30 @@ describe('runDeviceChecks', () => {
 
     const fast = byId(await runDeviceChecks({ ...env(), getTranslator: () => okTranslator, voiceWaitMs: 5 }));
     expect(fast.translate.status).toBe('ok');
+  });
+});
+
+describe('provera prevođenja uživo', () => {
+  it('zvuk poziva i izbor izlaza: podržano ili napomena', async () => {
+    const ok = byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5 }));
+    expect(ok['live-capture'].status).toBe('ok');
+    expect(ok['live-sink'].status).toBe('ok');
+    const no = byId(await runDeviceChecks({ ...env({ display: false, sink: false }), voiceWaitMs: 5 }));
+    expect(no['live-capture'].status).toBe('warn');
+    expect(no['live-capture'].detail).toContain('isti mikrofon');
+    expect(no['live-sink'].status).toBe('info');
+  });
+
+  it('Azure: nije podešen, radi, ne radi, izuzetak; bez argumenta nema stavke', async () => {
+    expect(byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5 })).azure).toBeUndefined();
+    expect(byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5, testAzure: null })).azure.status).toBe('info');
+    const ok = byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5, testAzure: async () => ({ ok: true, ms: 310 }) })).azure;
+    expect(ok.status).toBe('ok');
+    expect(ok.detail).toContain('310 ms');
+    const bad = byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5, testAzure: async () => ({ ok: false, message: 'Azure ključ nije ispravan.' }) })).azure;
+    expect(bad).toMatchObject({ status: 'fail', detail: 'Azure ključ nije ispravan.' });
+    const boom = byId(await runDeviceChecks({ ...env(), voiceWaitMs: 5, testAzure: async () => { throw new Error('pukla veza'); } })).azure;
+    expect(boom).toMatchObject({ status: 'fail', detail: 'pukla veza' });
   });
 });
 

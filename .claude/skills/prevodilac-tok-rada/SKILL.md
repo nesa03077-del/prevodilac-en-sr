@@ -17,6 +17,7 @@ za kucanje i za razgovor (govor), prvo kao web aplikacija (PWA), zatim Android.
    - kvalitet prevoda, sistemski prompt, latinica -> `prevodilac-kvalitet-prevoda`
    - mikrofon, prepoznavanje govora, izgovor -> `prevodilac-govor`
    - dispečerski režim, tačnost brojeva, brze fraze, mali prozor, PWA -> `prevodilac-dispecer`
+   - prevođenje uživo bez dugmadi (Azure govor, zvuk poziva, Windows/Android) -> `prevodilac-uzivo`
    - provera pre commit-a -> `prevodilac-provera` (uvek, na kraju svakog koraka)
 3. **Jezgro je čist JavaScript bez DOM-a** (`src/core/`). UI (`src/ui/`) samo
    poziva jezgro. Logika koju je moguće testirati ide u jezgro, ne u UI.
@@ -27,7 +28,7 @@ za kucanje i za razgovor (govor), prvo kao web aplikacija (PWA), zatim Android.
 6. **Tekst za korisnika je na srpskom latinicom**, sa dijakriticima (č, ć, š, ž, đ).
    Komentari u kodu takođe na srpskom; imena funkcija i promenljivih na engleskom.
 7. **Bez novih zavisnosti** bez jasnog razloga. Trenutno: `@anthropic-ai/sdk`,
-   `vite`, `vitest`.
+   `microsoft-cognitiveservices-speech-sdk` (samo režim "Uživo"), `vite`, `vitest`.
 
 ## Završetak koraka (Definicija "gotovo")
 

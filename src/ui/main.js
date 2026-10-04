@@ -12,10 +12,14 @@ import { REPORT_KINDS, createReportStore } from '../core/reports.js';
 import {
   DEFAULT_SETTINGS,
   createSettingsStore,
+  isAzureRegion,
   looksLikeApiKey,
+  looksLikeAzureKey,
   maskKey,
 } from '../core/settings.js';
 import { createClient, createTranslator } from '../core/translator.js';
+import { loadAzureSdk, testAzure } from '../core/azure-speech.js';
+import { initLive } from './live-view.js';
 import { initTalk } from './talk.js';
 
 const $ = (id) => document.getElementById(id);
@@ -47,6 +51,11 @@ const el = {
   viewRadios: [...document.querySelectorAll('input[name="view"]')],
   typing: $('typing'),
   talkSlot: $('talk-slot'),
+  liveSlot: $('live-slot'),
+  azureKey: $('azure-key'),
+  azureRegion: $('azure-region'),
+  azureHelp: $('azure-help'),
+  azureError: $('azure-error'),
   net: $('net'),
   domainList: $('domain-list'),
   toast: $('toast'),
@@ -82,6 +91,7 @@ const metricsStore = createMetricsStore(getStorage());
 let settings = store.load();
 let engine = null; // { session, translator } kad postoji ključ
 let talk = null; // ekran razgovora (pravi se pri pokretanju)
+let live = null; // ekran "Uživo" (pravi se pri pokretanju)
 let direction = { from: 'en', to: 'sr' };
 let storageFailed = false;
 
@@ -91,6 +101,7 @@ function renderView() {
   for (const radio of el.viewRadios) radio.checked = radio.value === settings.view;
   el.typing.hidden = settings.view !== 'type';
   el.talkSlot.hidden = settings.view !== 'talk';
+  el.liveSlot.hidden = settings.view !== 'live';
 }
 
 function setView(view) {
@@ -98,6 +109,7 @@ function setView(view) {
   settings = { ...settings, view };
   if (!store.save(settings)) storageFailed = true;
   if (view !== 'talk' && !talk?.miniActive) talk?.stop();
+  if (view !== 'live') live?.stop();
   renderView();
   (view === 'type' ? el.source : null)?.focus();
 }
@@ -108,7 +120,8 @@ for (const radio of el.viewRadios) {
   });
 }
 
-// Mikrofon se gasi čim stranica nije vidljiva.
+// Mikrofon u razgovoru se gasi čim stranica nije vidljiva. "Uživo" ostaje uključeno: služi
+// upravo dok je otvoren drugi program (poziv).
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) talk?.stop();
 });
@@ -336,7 +349,12 @@ async function runCheck() {
   el.checkResults.replaceChildren();
   el.checkSummary.hidden = true;
   try {
-    const results = await runDeviceChecks({ getTranslator: () => engine?.translator ?? null });
+    const results = await runDeviceChecks({
+      getTranslator: () => engine?.translator ?? null,
+      testAzure: settings.azureKey
+        ? async () => testAzure({ sdk: await loadAzureSdk(), key: settings.azureKey, region: settings.azureRegion })
+        : null,
+    });
     el.checkResults.replaceChildren(
       ...results.map((r) => {
         const li = document.createElement('li');
@@ -495,6 +513,13 @@ function openSettings() {
     ? 'Ostavite prazno da zadržite sačuvani ključ.'
     : 'Ključ se čuva samo u ovom pregledaču i šalje se samo na api.anthropic.com.';
   el.keyError.hidden = true;
+  el.azureKey.value = '';
+  el.azureKey.placeholder = settings.azureKey ? `Sačuvan: ${maskKey(settings.azureKey)}` : 'Ključ resursa Speech';
+  el.azureRegion.value = settings.azureRegion;
+  el.azureHelp.textContent = settings.azureKey
+    ? 'Ostavite ključ prazan da zadržite sačuvani.'
+    : 'Treba samo za režim "Uživo". Ključ se čuva samo u ovom pregledaču. Uputstvo: docs/azure-govor.md.';
+  el.azureError.hidden = true;
   el.storageWarning.hidden = !storageFailed;
   for (const input of el.modelList.querySelectorAll('input')) input.checked = input.value === settings.model;
   for (const input of el.domainList.querySelectorAll('input')) input.checked = input.value === settings.domain;
@@ -514,6 +539,7 @@ function applySettings(next) {
   if (!store.save(settings)) storageFailed = true;
   renderMode();
   buildEngine();
+  live?.refresh();
   if (hasText()) retranslateNow();
 }
 
@@ -538,10 +564,31 @@ el.form.addEventListener('submit', (e) => {
     el.apiKey.focus();
     return;
   }
+  const typedAzure = el.azureKey.value.trim();
+  const region = el.azureRegion.value.trim().toLowerCase();
+  const azureProblem =
+    typedAzure && !looksLikeAzureKey(typedAzure)
+      ? 'Ovo ne liči na Azure ključ (32 ili više slova i cifara bez razmaka).'
+      : region && !isAzureRegion(region)
+        ? 'Region izgleda ovako: westeurope, eastus, germanywestcentral.'
+        : '';
+  if (azureProblem) {
+    el.azureError.textContent = azureProblem;
+    el.azureError.hidden = false;
+    (typedAzure && !looksLikeAzureKey(typedAzure) ? el.azureKey : el.azureRegion).focus();
+    return;
+  }
   const model = el.modelList.querySelector('input:checked')?.value ?? settings.model;
   const domain = el.domainList.querySelector('input:checked')?.value ?? settings.domain;
   storageFailed = false;
-  applySettings({ ...settings, apiKey: typed || settings.apiKey, model, domain });
+  applySettings({
+    ...settings,
+    apiKey: typed || settings.apiKey,
+    model,
+    domain,
+    azureKey: typedAzure || settings.azureKey,
+    azureRegion: region || settings.azureRegion,
+  });
   closeSettings();
   hideNotice();
   if (storageFailed) {
@@ -559,9 +606,12 @@ el.forget.addEventListener('click', () => {
   disposeEngine();
   talk?.stop();
   talk?.clear();
+  live?.stop();
+  live?.clear();
   settings = { ...DEFAULT_SETTINGS };
   renderView();
   talk?.refresh();
+  live?.refresh();
   renderMode();
   direction = resolveDirection('auto', el.source.value, direction);
   renderLabels();
@@ -591,6 +641,26 @@ talk = initTalk({
     openSettings();
   },
   onReport: openReport,
+  onMetric: (m) => metricsStore.add(m),
+});
+
+live = initLive({
+  getTranslator: () => engine?.translator ?? null,
+  getSettings: () => settings,
+  setSettings: (patch) => {
+    settings = { ...settings, ...patch };
+    if (!store.save(settings)) storageFailed = true;
+  },
+  onNeedKey: () => {
+    showNoKeyNotice();
+    openSettings();
+  },
+  onNeedAzure: () => {
+    openSettings();
+    el.azureError.textContent = 'Za prevođenje uživo unesite Azure ključ i region.';
+    el.azureError.hidden = false;
+    el.azureKey.focus();
+  },
   onMetric: (m) => metricsStore.add(m),
 });
 renderView();

@@ -16,7 +16,7 @@ export const MAX_ITEMS = 50;
 const OTHER = { en: 'sr', sr: 'en' };
 
 // Isti tekst bez obzira na velika slova i znakove interpunkcije.
-const canonical = (t) => (t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+export const canonical = (t) => (t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 export const NO_VOICE_MESSAGE =
   'Ovaj uređaj nema srpski glas, pa se prevod na srpski samo prikazuje.';

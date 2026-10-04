@@ -173,6 +173,118 @@ async function talkPage(opts = {}, { speech = FAKE_SPEECH, view = 'type', key = 
   return t;
 }
 
+
+// ---------- lažni Azure govor, mikrofon i zvuk poziva (za režim "Uživo") ----------
+
+const FAKE_AZURE_KEY = 'AzKey0123456789abcdefABCDEF0123456789xy';
+
+const FAKE_LIVE = `
+(() => {
+  const log = { recognizers: [], synths: [], pushes: [] };
+  window.__azure = log;
+  window.__playingNonzero = 0;
+  window.__nonzeroChunks = 0;
+  window.__playing = false;
+  window.__played = [];
+
+  const ResultReason = { NoMatch: 0, RecognizedSpeech: 3, SynthesizingAudioCompleted: 9, Canceled: 1 };
+  const CancellationReason = { Error: 1, EndOfStream: 2 };
+  const CancellationErrorCode = { NoError: 0, AuthenticationFailure: 1, BadRequest: 2, TooManyRequests: 3, Forbidden: 4, ConnectionFailure: 5, ServiceTimeout: 6, ServiceError: 7, ServiceUnavailable: 8, RuntimeError: 9 };
+  class SpeechConfig {
+    constructor(key, region) { this.key = key; this.region = region; this.props = {}; }
+    static fromSubscription(key, region) { return new SpeechConfig(key, region); }
+    setProperty(id, value) { this.props[id] = value; }
+    setProfanity() {}
+  }
+  const AudioInputStream = {
+    createPushStream() {
+      const push = {
+        closed: false,
+        write(b) {
+          const nonzero = new Int16Array(b).some((x) => x !== 0);
+          if (nonzero) { window.__nonzeroChunks++; if (window.__playing) window.__playingNonzero++; }
+        },
+        close() { this.closed = true; },
+      };
+      log.pushes.push(push);
+      return push;
+    },
+  };
+  class SpeechRecognizer {
+    constructor(config, audio) { this.config = config; this.audio = audio; this.auto = null; this.started = false; this.stopped = false; log.recognizers.push(this); }
+    static FromConfig(config, auto, audio) { const r = new SpeechRecognizer(config, audio); r.auto = auto; return r; }
+    startContinuousRecognitionAsync(ok) { this.started = true; ok && ok(); }
+    stopContinuousRecognitionAsync(ok) { this.stopped = true; ok && ok(); }
+    close() {}
+  }
+  class SpeechSynthesizer {
+    constructor(config) { this.config = config; this.texts = []; log.synths.push(this); }
+    speakTextAsync(text, ok) {
+      this.texts.push(text);
+      ok({ reason: ResultReason.SynthesizingAudioCompleted, audioData: new TextEncoder().encode('mp3:' + text).buffer });
+    }
+    close() {}
+  }
+  window.__PREVODILAC_FAKE_AZURE__ = {
+    SpeechConfig, AudioInputStream, SpeechRecognizer, SpeechSynthesizer,
+    AudioConfig: { fromStreamInput: (push) => ({ push }) },
+    AutoDetectSourceLanguageConfig: { fromLanguages: (languages) => ({ languages }) },
+    AutoDetectSourceLanguageResult: { fromResult: (result) => ({ language: result.detectedLanguage }) },
+    ResultReason, CancellationReason, CancellationErrorCode,
+    PropertyId: { SpeechServiceConnection_LanguageIdMode: 37, SpeechServiceConnection_Endpoint: 1 },
+    SpeechSynthesisOutputFormat: { Audio24Khz48KBitRateMonoMp3: 6 },
+    ProfanityOption: { Raw: 2 },
+  };
+  // pomoć za proveru: govori recognizer (po jeziku, a u režimu jednog mikrofona prvi)
+  const rec = (lang) => log.recognizers.filter((r) => !r.stopped && (!lang || r.config.speechRecognitionLanguage === lang)).at(-1);
+  window.__say = (lang, text, final = true, detected) => {
+    const r = rec(lang);
+    const reason = final ? ResultReason.RecognizedSpeech : 2;
+    const result = { text, detectedLanguage: detected, reason };
+    final ? r.recognized(r, { result }) : r.recognizing(r, { result });
+  };
+  window.__azureError = (lang, code) => { const r = rec(lang); r.canceled(r, { reason: CancellationReason.Error, errorCode: CancellationErrorCode[code], errorDetails: code }); };
+
+  // Lažni zvuk: dva tona (moj mikrofon i zvuk poziva), pravi MediaStream-ovi.
+  const tracks = [];
+  const tone = (hz) => {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    osc.frequency.value = hz;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.3;
+    const dest = ctx.createMediaStreamDestination();
+    osc.connect(gain).connect(dest);
+    osc.start();
+    const stream = dest.stream;
+    tracks.push(...stream.getAudioTracks());
+    return stream;
+  };
+  window.__tracksLive = () => tracks.filter((t) => t.readyState === 'live').length;
+  window.__shareFail = null;
+  window.__shareNoAudio = false;
+  const md = navigator.mediaDevices;
+  md.getUserMedia = async () => tone(220);
+  md.getDisplayMedia = async () => {
+    if (window.__shareFail) throw Object.assign(new Error('x'), { name: window.__shareFail });
+    const stream = window.__shareNoAudio ? new MediaStream() : tone(440);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 8;
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    for (const t of canvas.captureStream().getVideoTracks()) stream.addTrack(t);
+    return stream;
+  };
+  md.enumerateDevices = async () => [{ kind: 'audiooutput', deviceId: 'cable1', label: 'CABLE Input (VB-Audio)' }, { kind: 'audiooutput', deviceId: 'spk1', label: 'Zvučnici' }];
+
+  // Lažno puštanje glasa: beleži izlazni uređaj i traje 400 ms.
+  window.Audio = class {
+    constructor(url) { this.url = url; this.entry = { url, sink: '' }; window.__played.push(this.entry); }
+    async setSinkId(id) { this.entry.sink = id; }
+    async play() { window.__playing = true; setTimeout(() => { window.__playing = false; this.onended && this.onended(); }, 400); }
+  };
+})();
+`;
+
 // ---------- mali okvir za provere ----------
 
 let failed = 0;
@@ -715,6 +827,186 @@ try {
       await p.screenshot({ path: path.join(shotsDir, `razgovor-${name}-${scheme}.png`), fullPage: true });
       check(`razgovor ${name}/${scheme}: nema grešaka u konzoli`, t.problems.length === 0, t.problems.join(' | '));
       await t.context.close();
+    }
+  }
+
+  // ===== 19. Uživo (probna verzija): dva toka, jedan mikrofon, greške =====
+  console.log('19. Uživo (probna verzija)');
+  {
+    const liveSettings = (extra = {}) =>
+      seedSettings({ view: 'live', azureKey: FAKE_AZURE_KEY, azureRegion: 'westeurope', liveMyLang: 'sr', liveMode: 'two-streams', ...extra });
+    const livePage = async (opts = {}, extra = {}) => {
+      const t = await newPage(opts);
+      await t.context.addInitScript(FAKE_LIVE);
+      await t.context.addInitScript(FAKE_SPEECH);
+      await t.context.addInitScript(liveSettings(extra));
+      await t.page.goto(origin);
+      return t;
+    };
+    const t = await livePage();
+    const p = t.page;
+    const until = (fn, arg, timeout = 5000) => p.waitForFunction(fn, arg, { timeout }).then(() => true, () => false);
+
+    check('pogled Uživo je prikazan', (await p.locator('#live').isVisible()) && (await p.locator('#typing').isHidden()) && (await p.locator('#talking').isHidden()));
+    check('izbor pogleda ima tri stavke', (await p.locator('#view-group input').count()) === 3);
+    check('početni status', (await text(p, '#live-status')) === 'Pritisnite "Pokreni" da počne prevođenje.');
+    check('izlazni uređaj se nudi', (await p.locator('#live-output option').count()) === 3);
+    await p.selectOption('#live-output', 'cable1');
+    check('izlaz za glas je zapamćen', (await p.evaluate(() => JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1')).outputDeviceId)) === 'cable1');
+
+    // pokretanje: dva toka, svaki svoj jezik
+    await p.click('#live-start');
+    check('pokretanje: dva prepoznavača, srpski za mene i engleski za sagovornika', await until(() => {
+      const r = window.__azure.recognizers;
+      return r.length === 2 && r.every((x) => x.started) && r[0].config.speechRecognitionLanguage === 'sr-RS' && r[1].config.speechRecognitionLanguage === 'en-US';
+    }));
+    check('azure ključ i region idu u servis', await p.evaluate(([k]) => window.__azure.recognizers.every((r) => r.config.key === k && r.config.region === 'westeurope'), [FAKE_AZURE_KEY]));
+    check('dugme postaje Zaustavi', await until(() => document.getElementById('live-start').textContent === 'Zaustavi'));
+    check('status: slušam', await until(() => document.getElementById('live-status').textContent.startsWith('Slušam')));
+    check('pravi zvuk stiže do servisa', await until(() => window.__nonzeroChunks > 2));
+    check('merač nivoa se pomera', await until(() => Number(document.getElementById('meter-me').style.getPropertyValue('--level')) > 0));
+    check('podešavanja su zaključana dok radi', await p.locator('#live-mode-one').isDisabled());
+
+    // sagovornik govori engleski: prevod uživo, pa stavka
+    await p.evaluate(() => window.__say('en-US', 'pick up the load', false));
+    check('delimičan tekst sagovornika se vidi', await until(() => document.querySelector('.turn.live.who-other .src')?.textContent === 'pick up the load'));
+    check('delimičan tekst se prevodi uživo', await until(() => document.querySelector('.turn.live.who-other .tr')?.textContent === 'Zdravo svete', null, 6000));
+    const callsBefore = apiCalls.length;
+    await p.evaluate(() => window.__say('en-US', 'pick up the load', true));
+    check('konačna izjava sagovornika je stavka', await until(() => document.querySelector('.turn.who-other:not(.live) .tr')?.textContent === 'Zdravo svete'));
+    check('uživo prevod je preuzet bez novog zahteva', apiCalls.length === callsBefore, `zahteva: ${apiCalls.length - callsBefore}`);
+    check('sagovornik: bez izgovora (podrazumevano isključen)', (await p.evaluate(() => window.__played.length)) === 0);
+
+    // ja govorim srpski: prevod na engleski se izgovara engleskim glasom na izabrani izlaz
+    await p.evaluate(() => window.__say('sr-RS', 'Gde je moj tovar', true));
+    check('moja izjava je stavka sa engleskim prevodom', await until(() => document.querySelector('.turn.who-me:not(.live) .tr')?.textContent === 'Hello world'));
+    check('engleski prevod se izgovara engleskim neuralnim glasom', await until(() => window.__azure.synths.some((s) => s.texts.includes('Hello world') && s.config.speechSynthesisVoiceName === 'en-US-GuyNeural')));
+    check('glas ide na izabrani izlaz (virtuelni kabl)', await until(() => window.__played.length === 1 && window.__played[0].sink === 'cable1'));
+    check('dok se izgovara, status to kaže', await until(() => document.getElementById('live-status').textContent === 'Izgovaram prevod…'));
+    await until(() => window.__playing === true);
+    await until(() => window.__playing === false);
+    await p.waitForTimeout(700);
+    check('dok se izgovara, u servis ne ide zvuk (nema slušanja samog sebe)', (await p.evaluate(() => window.__playingNonzero)) === 0);
+    check('posle izgovora zvuk ponovo ide u servis', await (async () => {
+      const before = await p.evaluate(() => window.__nonzeroChunks);
+      return until((b) => window.__nonzeroChunks > b + 1, before);
+    })());
+
+    // pogrešan broj u prevodu
+    await p.evaluate(() => window.__say('en-US', 'Pick up load 48213 at 14:30', true));
+    check('upozorenje kad se broj razlikuje', await until(() => /48213/.test(document.querySelector('.turn .warn')?.textContent ?? '')));
+    check('brojevi su istaknuti', (await p.locator('.turn mark.num').count()) >= 4);
+
+    check('nema grešaka u prevodu', (await p.locator('.turn .err').count()) === 0);
+
+    // snimak razgovora u toku (prikazuje se i delimičan tekst)
+    await p.evaluate(() => window.__say('sr-RS', 'Stižem za dvadeset minuta', false));
+    await until(() => document.querySelector('.turn.live.who-me .tr')?.textContent === 'Hello world', null, 6000);
+    await p.screenshot({ path: path.join(shotsDir, 'uzivo-radi-1280-light.png'), fullPage: true });
+    check('stavke prate redosled', (await p.locator('#live-log .turn').count()) >= 4);
+
+    // greška servisa: pogrešan ključ zaustavlja prevođenje i objašnjava
+    await p.evaluate(() => window.__azureError('en-US', 'AuthenticationFailure'));
+    check('pogrešan Azure ključ daje poruku', await until(() => (document.getElementById('live-alert').textContent || '').includes('Azure ključ ili region')));
+    check('posle greške je zaustavljeno', await until(() => document.getElementById('live-start').textContent === 'Pokreni'));
+    check('posle greške je mikrofon ugašen', await until(() => window.__tracksLive() === 0));
+
+    // brisanje
+    await p.click('#live-clear');
+    check('Obriši prazni razgovor', (await p.locator('#live-log .turn').count()) === 0);
+
+    // zaustavljanje dugmetom
+    await p.click('#live-start');
+    check('ponovno pokretanje posle greške', await until(() => document.getElementById('live-start').textContent === 'Zaustavi'));
+    await p.click('#live-start');
+    check('Zaustavi gasi mikrofon i zvuk poziva', await until(() => document.getElementById('live-start').textContent === 'Pokreni' && window.__tracksLive() === 0));
+    check('zaustavljanje zatvara tokove ka servisu', await p.evaluate(() => window.__azure.pushes.slice(-2).every((x) => x.closed)));
+
+    // prelazak na drugi pogled gasi sve
+    await p.click('#live-start');
+    await until(() => document.getElementById('live-start').textContent === 'Zaustavi');
+    await p.click('label[for=view-type]');
+    check('napuštanje pogleda gasi prevođenje uživo', await until(() => window.__tracksLive() === 0));
+    await p.click('label[for=view-live]');
+    check('po povratku je opet spremno', (await text(p, '#live-start')) === 'Pokreni');
+
+    // deljenje zvuka otkazano / izvor bez zvuka
+    await p.evaluate(() => (window.__shareFail = 'NotAllowedError'));
+    await p.click('#live-start');
+    check('otkazano deljenje daje poruku', await until(() => (document.getElementById('live-alert').textContent || '').includes('Niste izabrali zvuk poziva')));
+    check('posle otkazivanja mikrofon je ugašen', await until(() => window.__tracksLive() === 0));
+    await p.evaluate(() => { window.__shareFail = null; window.__shareNoAudio = true; });
+    await p.click('#live-start');
+    check('izvor bez zvuka daje poruku', await until(() => (document.getElementById('live-alert').textContent || '').includes('nema zvuk')));
+    await p.evaluate(() => (window.__shareNoAudio = false));
+
+    // jedan mikrofon: jezik izjave određuje servis
+    await p.click('label[for=live-mode-one]');
+    check('režim jednog mikrofona je zapamćen', (await p.evaluate(() => JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1')).liveMode)) === 'single-mic');
+    const recCount = await p.evaluate(() => window.__azure.recognizers.length);
+    await p.click('#live-start');
+    check('jedan prepoznavač sa oba jezika', await until((n) => {
+      const r = window.__azure.recognizers;
+      return r.length === n + 1 && r.at(-1).started && JSON.stringify(r.at(-1).auto.languages) === '["sr-RS","en-US"]';
+    }, recCount));
+    await p.evaluate(() => window.__say(undefined, 'Is the load ready', true, 'en-US'));
+    check('engleska izjava je sagovornikova', await until(() => document.querySelector('.turn.who-other:not(.live) .src')?.textContent === 'Is the load ready'));
+    await p.evaluate(() => window.__say(undefined, 'Spreman je', true, 'sr-RS'));
+    check('srpska izjava je moja', await until(() => document.querySelector('.turn.who-me:not(.live) .src')?.textContent === 'Spreman je'));
+    await p.click('#live-start');
+    await until(() => window.__tracksLive() === 0);
+    check('nema grešaka u konzoli (uživo)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+
+    // bez Azure ključa
+    const n = await livePage({}, { azureKey: '' });
+    await n.page.click('#live-start');
+    check('bez Azure ključa otvaraju se podešavanja', await n.page.locator('#settings').evaluate((d) => d.open));
+    check('bez Azure ključa poruka objašnjava šta treba', (await text(n.page, '#azure-error')).includes('Azure ključ'));
+    check('bez Azure ključa mikrofon se ne otvara', (await n.page.evaluate(() => window.__tracksLive())) === 0);
+    // pogrešan oblik ključa
+    await n.page.fill('#azure-key', 'kratko');
+    await n.page.click('#settings-form button[type=submit]');
+    check('pogrešan oblik Azure ključa daje grešku', (await text(n.page, '#azure-error')).includes('ne liči na Azure ključ'));
+    check('dijalog ostaje otvoren', await n.page.locator('#settings').evaluate((d) => d.open));
+    await n.page.fill('#azure-key', FAKE_AZURE_KEY);
+    await n.page.fill('#azure-region', 'eastus');
+    await n.page.click('#settings-form button[type=submit]');
+    check('ispravan ključ se čuva sa regionom', await n.page.evaluate(([k]) => {
+      const s = JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1'));
+      return s.azureKey === k && s.azureRegion === 'eastus';
+    }, [FAKE_AZURE_KEY]));
+    await n.page.click('#settings-btn');
+    check('Azure ključ je maskiran u podešavanjima', ((await n.page.locator('#azure-key').getAttribute('placeholder')) || '').startsWith('Sačuvan:') && !(await n.page.content()).includes(FAKE_AZURE_KEY));
+    check('region je prikazan', (await n.page.inputValue('#azure-region')) === 'eastus');
+    // provera uređaja uključuje Azure
+    await n.page.click('#device-check-btn');
+    check('provera uređaja ima red za Azure', await n.page.waitForFunction(() => [...document.querySelectorAll('.check-row')].some((r) => r.textContent.includes('Azure govor') && r.classList.contains('ok')), null, { timeout: 15000 }).then(() => true, () => false));
+    check('nema grešaka u konzoli (Azure podešavanja)', n.problems.length === 0, n.problems.join(' | '));
+    await n.context.close();
+
+    // snimci (390 i 1280, svetla i tamna tema), sa razgovorom u toku
+    for (const scheme of ['light', 'dark']) {
+      for (const [name, viewport] of sizes) {
+        const s = await livePage({ viewport, colorScheme: scheme, deviceScaleFactor: 2 });
+        const sp = s.page;
+        await sp.selectOption('#live-output', 'cable1');
+        await sp.click('#live-start');
+        await sp.waitForFunction(() => window.__azure.recognizers.length === 2 && window.__azure.recognizers.every((r) => r.started), null, { timeout: 5000 });
+        await sp.evaluate(() => window.__say('en-US', 'Where is the nearest pharmacy? My daughter has a fever.', true));
+        await sp.waitForFunction(() => document.querySelector('.turn.who-other:not(.live) .tr')?.textContent === 'Zdravo svete', null, { timeout: 6000 });
+        await sp.evaluate(() => window.__say('sr-RS', 'Gde je apoteka', true));
+        await sp.waitForFunction(() => window.__played.length === 1, null, { timeout: 6000 });
+        await sp.waitForFunction(() => !window.__playing, null, { timeout: 4000 });
+        await sp.evaluate(() => window.__say('en-US', 'Pick up load 48213 at 14:30', true));
+        await sp.waitForFunction(() => document.querySelector('.turn .warn'), null, { timeout: 6000 });
+        await sp.evaluate(() => window.__say('sr-RS', 'hvala puno', false));
+        await sp.waitForFunction(() => document.querySelector('.turn.live.who-me .tr')?.textContent === 'Hello world', null, { timeout: 6000 });
+        check(`uživo ${name}/${scheme}: nema vodoravnog pomeranja`, await sp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+        await sp.screenshot({ path: path.join(shotsDir, `uzivo-${name}-${scheme}.png`), fullPage: true });
+        check(`uživo ${name}/${scheme}: nema grešaka u konzoli`, s.problems.length === 0, s.problems.join(' | '));
+        await s.context.close();
+      }
     }
   }
 } catch (err) {

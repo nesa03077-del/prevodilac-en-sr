@@ -123,7 +123,28 @@ Ovo ne može da uradi program, nego vlasnik repoa, dispečer i maternji govornik
 - Odluka posle pilota: da li je potrebno i prepoznavanje glasa pozivaoca iz slušalica (virtuelni audio
   kabl i plaćeno prepoznavanje govora) ili je mikrofon dovoljan
 
-## [ ] Korak 6 - Android aplikacija (po potrebi)
+## [x] Korak 6 - Prevođenje uživo, web (probna verzija)
 
-- Omotač oko web verzije (npr. Capacitor), dozvola za mikrofon, APK
-- Novi skil `prevodilac-android` pre početka koraka
+Zahtev korisnika: da govori u mikrofon i da se prevodi odmah, i da sluša engleski i da se odmah
+prevodi na srpski, u realnom vremenu, bez dugmadi. Skil: `prevodilac-uzivo`.
+
+- Pogled "Uživo": Pokreni/Zaustavi, dva načina (zvuk poziva + moj mikrofon, ili jedan mikrofon sa
+  automatskim prepoznavanjem jezika), moj jezik srpski/engleski, izgovor prevoda sagovorniku i/ili
+  meni, izbor izlaznog uređaja (virtuelni kabl), merač nivoa
+- Jezgro: `pcm.js`, `audio-capture.js` (16 kHz PCM), `azure-speech.js` (prepoznavanje i glas),
+  `audio-player.js`, `live-voice.js`, `media-streams.js`, `live-interpreter.js`; podešavanja za Azure
+  ključ i region, red "Azure govor" u proveri uređaja, `docs/azure-govor.md`
+- Hvatanje se utišava dok se izgovara prevod (nema slušanja samog sebe)
+- Provera: 313 testova i 224 provere u Chromium-u sa lažnim Azure SDK-om i lažnim zvukom
+- NIJE provereno: pravi Azure servis (potreban ključ i region), pravi zvuk poziva, pravi uređaji,
+  kašnjenje u pravoj upotrebi, jezik sr-RS u Azure prepoznavanju (kvalitet), cene i kvota
+
+## [ ] Korak 7 - Windows aplikacija (Electron)
+
+- Folder `desktop/`: prozor koji uvek stoji iznad ostalih, prečica, hvatanje zvuka celog računara
+  (loopback), instalacija (electron-builder), gradnja na GitHub Actions (windows-latest)
+
+## [ ] Korak 8 - Android aplikacija (Capacitor)
+
+- Omotač oko web verzije, dozvola za mikrofon, samo režim jednog mikrofona (Android nema
+  hvatanje zvuka poziva), debug APK (gradnja lokalno ili na GitHub Actions)
