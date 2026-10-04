@@ -150,8 +150,10 @@ prevodi na srpski, u realnom vremenu, bez dugmadi. Skil: `prevodilac-uzivo`.
   (instalacija i prenosiva verzija); fajlovi su u Artifacts
 - Provera: `npm run smoke` u `desktop/` otvara pravi Electron (Linux, xvfb): stranica se učitava preko
   `app://` sa CSP-om, skripte rade, pogled Uživo postoji, preload radi
-- NIJE provereno: rad na Windows-u (instalacija, loopback zvuk, prečice, iznad ostalih programa),
-  Actions gradnja, potpisivanje (aplikacija nije potpisana: Windows SmartScreen će upozoriti)
+- Provereno u Actions na pravom Windows-u (windows-latest): testovi, gradnja, `npm run smoke` (aplikacija se
+  otvara i skripte rade), pakovanje; rezultat su instalacija i prenosiva verzija (~97 MB, Artifacts)
+- NIJE provereno: instalacija na računaru, loopback zvuk poziva, prečice, rad iznad ostalih programa,
+  potpisivanje (aplikacija nije potpisana: Windows SmartScreen će upozoriti)
 
 ## [x] Korak 8 - Android aplikacija (Capacitor), probna
 
@@ -163,6 +165,7 @@ prevodi na srpski, u realnom vremenu, bez dugmadi. Skil: `prevodilac-uzivo`.
 - Gradnja: `npm run build`, pa u `mobile/`: `npm ci`, `npx cap sync android`, u `android/` `./gradlew assembleDebug`
   (Java 21, Android SDK 36); GitHub Actions `android.yml` (ručno pokretanje), APK u Artifacts
 - Provera: debug APK je napravljen ovde (4,3 MB), pregledan sa `aapt2` (paket, dozvole, web fajlovi unutra)
+- Actions `android.yml` je uspeo na ubuntu-latest (APK ~4 MB u Artifacts)
 - NIJE provereno: instalacija i rad na telefonu (mikrofon u WebView-u, Azure, glas, kašnjenje, ekran budan),
   jer ovde nema telefona ni emulatora. APK je debug (nije potpisan za Play prodavnicu), ikona je podrazumevana
   Capacitor ikona
