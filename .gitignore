@@ -4,3 +4,5 @@ dist/
 .env
 .env.*
 e2e-shots/
+desktop/node_modules/
+desktop/release/

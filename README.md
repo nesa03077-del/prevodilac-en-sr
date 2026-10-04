@@ -21,8 +21,8 @@ Za prvu upotrebu u poslu pogledajte [PILOT.md](PILOT.md).
 
 Pogled "Uživo" (probna verzija) prevodi bez pritiskanja dugmadi: govorite u mikrofon, a zvuk
 sagovornika iz poziva se prevodi na srpski. Radi preko Azure servisa za govor; ključ i region se unose
-u podešavanjima ([docs/azure-govor.md](docs/azure-govor.md)). Windows i Android aplikacije su u planu
-(korak 7 i 8 u ROADMAP.md).
+u podešavanjima ([docs/azure-govor.md](docs/azure-govor.md)). Windows aplikacija je u `desktop/` (gradi se u GitHub Actions: "Windows aplikacija");
+Android je u planu (korak 8 u ROADMAP.md).
 
 Pri prvom otvaranju aplikacija traži Anthropic API ključ. Ključ ostaje samo u vašem
 pregledaču (localStorage) i šalje se samo na api.anthropic.com.

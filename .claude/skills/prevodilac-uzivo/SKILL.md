@@ -42,3 +42,9 @@ kao push stream (`azure-speech.js`).
   prevod na srpskom se pojavljuje; reći srpsku rečenicu: engleski prevod se izgovara.
 - Provera "sluša sebe": uključiti izgovor za mene i zvučnike; ne sme da nastane petlja.
 - Kašnjenje: izmeriti od kraja izjave do početka glasa (cilj ispod ~2 s).
+
+## Windows (desktop/)
+
+Electron omotač oko `dist/`. `npm run build`, pa u `desktop/`: `npm ci`, `npx electron . --smoke --no-sandbox`
+(Linux: `xvfb-run -a`). Loopback zvuk (`audio: 'loopback'` u `setDisplayMediaRequestHandler`) radi samo na
+Windows-u i ne može da se proveri ovde. Gradnja: GitHub Actions "Windows aplikacija".

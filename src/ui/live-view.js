@@ -275,6 +275,11 @@ export function initLive({ getTranslator, getSettings, setSettings, onNeedKey, o
   el.clear.addEventListener('click', () => interpreter.clear());
   el.alert.addEventListener('click', () => interpreter.dismissNotice());
 
+  // Windows aplikacija: prečica Ctrl+Alt+L pokreće/zaustavlja prevođenje (samo dok je ovaj pogled prikazan).
+  window.prevodilacDesktop?.onToggleLive(() => {
+    if (!el.start.closest('[hidden]')) el.start.click();
+  });
+
   renderControls();
   renderOutputs();
   render(interpreter.getState());

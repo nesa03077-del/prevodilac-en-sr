@@ -1,0 +1,17 @@
+{
+  "name": "prevodilac-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prevodilac EN-SR: Windows aplikacija (Electron omotač oko web verzije)",
+  "author": "Prevodilac",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^41.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}

@@ -139,10 +139,19 @@ prevodi na srpski, u realnom vremenu, bez dugmadi. Skil: `prevodilac-uzivo`.
 - NIJE provereno: pravi Azure servis (potreban ključ i region), pravi zvuk poziva, pravi uređaji,
   kašnjenje u pravoj upotrebi, jezik sr-RS u Azure prepoznavanju (kvalitet), cene i kvota
 
-## [ ] Korak 7 - Windows aplikacija (Electron)
+## [x] Korak 7 - Windows aplikacija (Electron)
 
-- Folder `desktop/`: prozor koji uvek stoji iznad ostalih, prečica, hvatanje zvuka celog računara
-  (loopback), instalacija (electron-builder), gradnja na GitHub Actions (windows-latest)
+- Folder `desktop/` (zaseban `package.json`, ne dira web aplikaciju): `main.js`, `preload.js`,
+  `electron-builder.yml`; stranica se služi preko `app://` (bezbedan kontekst), mikrofon se dozvoljava
+  samo našoj stranici, spoljni linkovi idu u pregledač
+- Zvuk poziva: `getDisplayMedia` se u aplikaciji rešava bez pitanja, hvata zvuk celog računara
+  (loopback, Windows); prečice Ctrl+Alt+P (iznad ostalih programa) i Ctrl+Alt+L (pokreni/zaustavi uživo)
+- GitHub Actions `windows.yml` (ručno pokretanje): testovi, gradnja, provera otvaranja, pakovanje
+  (instalacija i prenosiva verzija); fajlovi su u Artifacts
+- Provera: `npm run smoke` u `desktop/` otvara pravi Electron (Linux, xvfb): stranica se učitava preko
+  `app://` sa CSP-om, skripte rade, pogled Uživo postoji, preload radi
+- NIJE provereno: rad na Windows-u (instalacija, loopback zvuk, prečice, iznad ostalih programa),
+  Actions gradnja, potpisivanje (aplikacija nije potpisana: Windows SmartScreen će upozoriti)
 
 ## [ ] Korak 8 - Android aplikacija (Capacitor)
 

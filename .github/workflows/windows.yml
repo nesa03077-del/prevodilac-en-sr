@@ -1,0 +1,41 @@
+# Gradi Windows aplikaciju (instalacija i prenosiva verzija) i čuva je kao fajl uz izvršavanje.
+# Pokretanje: Actions -> "Windows aplikacija" -> Run workflow. Fajlovi se skidaju iz tog izvršavanja
+# (Artifacts -> prevodilac-windows).
+name: Windows aplikacija
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Instalacija alata za pakovanje
+        working-directory: desktop
+        run: npm ci
+      - name: Provera da se aplikacija otvara
+        working-directory: desktop
+        run: npm run smoke
+      - name: Pakovanje
+        working-directory: desktop
+        run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prevodilac-windows
+          path: |
+            desktop/release/*.exe
+          if-no-files-found: error

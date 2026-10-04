@@ -1,0 +1,24 @@
+appId: rs.prevodilac.desktop
+productName: Prevodilac
+directories:
+  output: release
+  buildResources: build
+files:
+  - main.js
+  - preload.js
+  - package.json
+extraResources:
+  - from: ../dist
+    to: dist
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+artifactName: Prevodilac-${version}-${arch}.${ext}
