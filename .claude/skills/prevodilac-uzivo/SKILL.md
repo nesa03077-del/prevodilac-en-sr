@@ -48,3 +48,10 @@ kao push stream (`azure-speech.js`).
 Electron omotač oko `dist/`. `npm run build`, pa u `desktop/`: `npm ci`, `npx electron . --smoke --no-sandbox`
 (Linux: `xvfb-run -a`). Loopback zvuk (`audio: 'loopback'` u `setDisplayMediaRequestHandler`) radi samo na
 Windows-u i ne može da se proveri ovde. Gradnja: GitHub Actions "Windows aplikacija".
+
+## Android (mobile/)
+
+Capacitor 8, Java 21, Android SDK 36. Gradnja: `npm run build`, u `mobile/`: `npm ci && npx cap sync android`, u
+`mobile/android/`: `ANDROID_HOME=... ./gradlew assembleDebug`. Dozvole su u `AndroidManifest.xml`. WebView nema
+`getDisplayMedia`, pa je jedini režim `single-mic`. Nikad ne dodavati `allowBackup=true` (čuvaju se ključevi).
+Provera na telefonu je obavezna ručna lista (mikrofon, Azure, glas, kašnjenje).

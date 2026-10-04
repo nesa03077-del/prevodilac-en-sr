@@ -153,7 +153,17 @@ prevodi na srpski, u realnom vremenu, bez dugmadi. Skil: `prevodilac-uzivo`.
 - NIJE provereno: rad na Windows-u (instalacija, loopback zvuk, prečice, iznad ostalih programa),
   Actions gradnja, potpisivanje (aplikacija nije potpisana: Windows SmartScreen će upozoriti)
 
-## [ ] Korak 8 - Android aplikacija (Capacitor)
+## [x] Korak 8 - Android aplikacija (Capacitor), probna
 
-- Omotač oko web verzije, dozvola za mikrofon, samo režim jednog mikrofona (Android nema
-  hvatanje zvuka poziva), debug APK (gradnja lokalno ili na GitHub Actions)
+- Folder `mobile/` (zaseban `package.json`): Capacitor 8 omotač oko `dist/`, aplikacija `rs.prevodilac.mobile`,
+  dozvole INTERNET, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, WAKE_LOCK; bez cloud rezervne kopije
+  (`allowBackup=false`, da API ključevi ne idu u rezervnu kopiju)
+- Android WebView nema hvatanje zvuka poziva ni Web Speech: pogled "Uživo" sam bira "Isti mikrofon"
+  (sagovornik na zvučniku) i radi preko Azure-a; "Razgovor" objašnjava da nije podržan
+- Gradnja: `npm run build`, pa u `mobile/`: `npm ci`, `npx cap sync android`, u `android/` `./gradlew assembleDebug`
+  (Java 21, Android SDK 36); GitHub Actions `android.yml` (ručno pokretanje), APK u Artifacts
+- Provera: debug APK je napravljen ovde (4,3 MB), pregledan sa `aapt2` (paket, dozvole, web fajlovi unutra)
+- NIJE provereno: instalacija i rad na telefonu (mikrofon u WebView-u, Azure, glas, kašnjenje, ekran budan),
+  jer ovde nema telefona ni emulatora. APK je debug (nije potpisan za Play prodavnicu), ikona je podrazumevana
+  Capacitor ikona
+- Ograničenje: Android ne dozvoljava običnoj aplikaciji da uhvati zvuk poziva; za poziv se koristi zvučnik
