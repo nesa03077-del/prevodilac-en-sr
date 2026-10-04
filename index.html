@@ -14,6 +14,13 @@
       <button type="button" id="settings-btn" class="ghost">Podešavanja</button>
     </header>
 
+    <fieldset class="seg views" id="view-group">
+      <legend class="sr-only">Način rada</legend>
+      <input type="radio" name="view" id="view-type" value="type"><label for="view-type">Kucanje</label>
+      <input type="radio" name="view" id="view-talk" value="talk"><label for="view-talk">Razgovor</label>
+    </fieldset>
+
+    <div id="typing" class="view">
     <div class="controls">
       <fieldset class="seg" id="mode-group">
         <legend class="sr-only">Smer prevoda</legend>
@@ -51,8 +58,24 @@
         <div id="output" class="output" data-empty="true" role="region" aria-live="polite" aria-label="Prevod" aria-busy="false" data-placeholder="Prevod će se pojaviti ovde dok kucate."></div>
       </section>
     </main>
+    </div>
 
-    <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju.</p>
+    <div id="talking" class="view" hidden>
+      <p id="talk-unsupported" class="notice info" hidden></p>
+      <p id="talk-alert" class="notice" role="alert" hidden></p>
+      <p id="talk-status" class="status" role="status" aria-live="polite">Pritisnite dugme i govorite.</p>
+      <ol id="talk-log" class="log" aria-label="Razgovor" data-placeholder="Pritisnite jedno od dugmadi i govorite. Prevod se pojavljuje dok govorite, a izgovara se kad završite rečenicu."></ol>
+      <div class="talk-bar">
+        <button type="button" class="talk-btn" data-lang="en" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span><strong>Engleski govori</strong><small>prevod na srpski</small></span></button>
+        <button type="button" class="talk-btn" data-lang="sr" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span><strong>Srpski govori</strong><small>prevod na engleski</small></span></button>
+      </div>
+      <div class="talk-tools">
+        <label class="check"><input type="checkbox" id="speak-toggle"> Izgovaraj prevod</label>
+        <button type="button" id="talk-clear" class="ghost small" disabled>Obriši razgovor</button>
+      </div>
+    </div>
+
+    <p class="foot">Prevod radi Claude. Tekst se šalje samo Anthropic-u, a ključ ostaje na ovom uređaju. Govor prepoznaje vaš pregledač (Chrome i Edge ga šalju svom servisu za prepoznavanje).</p>
   </div>
 
   <dialog id="settings" aria-labelledby="settings-title">

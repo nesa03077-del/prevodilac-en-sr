@@ -45,3 +45,29 @@ izgovora uvek poznati. Pritisak drugog dugmeta zaustavlja prvo slušanje.
   objektima i testira se u `test/`.
 - Pravi mikrofon se ne može testirati automatski - na kraju koraka korisniku
   daj kratku listu za ručnu proveru na telefonu.
+
+## Gde je šta (korak 3)
+
+| Fajl | Šta radi |
+|---|---|
+| `src/core/speech-recognizer.js` | SpeechRecognition: ponovno pokretanje, greške, suspend/resume |
+| `src/core/speaker.js` | speechSynthesis: izbor glasa, red izgovora, cancel |
+| `src/core/conversation.js` | tok razgovora, istorija, kontekst, `describeStatus` |
+| `src/ui/talk.js` | ekran razgovora |
+| `test/fake-speech.js` | lažni SpeechRecognition i speechSynthesis za testove |
+| `scripts/e2e.mjs` | `FAKE_SPEECH` ubacuje lažni mikrofon i izgovor u Chromium |
+
+Pravila koja ne smeju da se pokvare (imaju testove): mikrofon je pauziran dok se prevod
+izgovara; izgovori idu redom; delimičan prevod nikad ne ide u istoriju; srpski tekst je
+uvek latinica; greška mikrofona zaustavlja slušanje i prikazuje poruku.
+
+## Ručna provera na telefonu (Chrome, HTTPS ili localhost)
+
+1. Otvorite Razgovor, pritisnite "Engleski govori", dozvolite mikrofon. Recite
+   "Where is the nearest pharmacy?" - tekst se vidi dok govorite, a posle pauze stiže srpski
+   prevod i čuje se.
+2. Dok se prevod izgovara, aplikacija ne sme da "čuje" sebe (nema duplih rečenica).
+3. Pritisnite "Srpski govori" i recite "Gde je apoteka?" - prevod na engleski se čuje.
+4. Isključite "Izgovaraj prevod" - prevod se samo prikazuje.
+5. Odbijte dozvolu za mikrofon (podešavanja sajta) - mora da se pojavi poruka.
+6. Ako uređaj nema srpski glas, mora da se pojavi napomena, a prevod i dalje da se prikazuje.

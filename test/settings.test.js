@@ -31,15 +31,17 @@ describe('normalizeSettings', () => {
   });
 
   it('odbacuje nepoznat model i smer, seče razmake u ključu', () => {
-    expect(normalizeSettings({ apiKey: '  sk-ant-x  ', model: 'gpt-4', mode: 'de-en' })).toEqual({
+    expect(normalizeSettings({ apiKey: '  sk-ant-x  ', model: 'gpt-4', mode: 'de-en', view: 'x', speak: 'da' })).toEqual({
       apiKey: 'sk-ant-x',
       model: DEFAULT_SETTINGS.model,
       mode: 'auto',
+      view: 'type',
+      speak: true,
     });
   });
 
   it('zadržava ispravne vrednosti', () => {
-    const s = { apiKey: 'k', model: 'claude-haiku-4-5', mode: 'sr-en' };
+    const s = { apiKey: 'k', model: 'claude-haiku-4-5', mode: 'sr-en', view: 'talk', speak: false };
     expect(normalizeSettings(s)).toEqual(s);
   });
 });
@@ -47,8 +49,9 @@ describe('normalizeSettings', () => {
 describe('createSettingsStore', () => {
   it('čuva i učitava', () => {
     const store = createSettingsStore(memoryStorage());
-    expect(store.save({ apiKey: 'abc', model: 'claude-sonnet-5-5', mode: 'en-sr' })).toBe(true);
-    expect(store.load()).toEqual({ apiKey: 'abc', model: 'claude-sonnet-5-5', mode: 'en-sr' });
+    const saved = { apiKey: 'abc', model: 'claude-sonnet-5-5', mode: 'en-sr', view: 'talk', speak: false };
+    expect(store.save(saved)).toBe(true);
+    expect(store.load()).toEqual(saved);
   });
 
   it('oštećen JSON daje podrazumevane vrednosti', () => {

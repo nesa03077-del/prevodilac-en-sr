@@ -11,6 +11,7 @@ import {
   maskKey,
 } from '../core/settings.js';
 import { createClient, createTranslator } from '../core/translator.js';
+import { initTalk } from './talk.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -38,6 +39,9 @@ const el = {
   forget: $('forget'),
   cancel: $('settings-cancel'),
   modeRadios: [...document.querySelectorAll('input[name="mode"]')],
+  viewRadios: [...document.querySelectorAll('input[name="view"]')],
+  typing: $('typing'),
+  talking: $('talking'),
 };
 
 function getStorage() {
@@ -50,9 +54,38 @@ function getStorage() {
 
 const store = createSettingsStore(getStorage());
 let settings = store.load();
-let engine = null; // { session } kad postoji ključ
+let engine = null; // { session, translator } kad postoji ključ
+let talk = null; // ekran razgovora (pravi se pri pokretanju)
 let direction = { from: 'en', to: 'sr' };
 let storageFailed = false;
+
+// ---------- način rada: kucanje / razgovor ----------
+
+function renderView() {
+  for (const radio of el.viewRadios) radio.checked = radio.value === settings.view;
+  el.typing.hidden = settings.view !== 'type';
+  el.talking.hidden = settings.view !== 'talk';
+}
+
+function setView(view) {
+  if (view === settings.view) return;
+  settings = { ...settings, view };
+  if (!store.save(settings)) storageFailed = true;
+  if (view !== 'talk') talk?.stop();
+  renderView();
+  (view === 'type' ? el.source : null)?.focus();
+}
+
+for (const radio of el.viewRadios) {
+  radio.addEventListener('change', () => {
+    if (radio.checked) setView(radio.value);
+  });
+}
+
+// Mikrofon se gasi čim stranica nije vidljiva.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) talk?.stop();
+});
 
 // ---------- obaveštenja ----------
 
@@ -130,7 +163,7 @@ function buildEngine() {
       el.output.setAttribute('aria-busy', String(busy));
     },
   });
-  engine = { session };
+  engine = { session, translator };
 }
 
 function showNoKeyNotice() {
@@ -340,7 +373,11 @@ el.forget.addEventListener('click', () => {
   }
   store.clearAll();
   disposeEngine();
-  settings = { ...settings, apiKey: '', model: MODELS[0].id, mode: 'auto' };
+  talk?.stop();
+  talk?.clear();
+  settings = { ...settings, apiKey: '', model: MODELS[0].id, mode: 'auto', view: 'type', speak: true };
+  renderView();
+  talk?.refresh();
   renderMode();
   direction = resolveDirection('auto', el.source.value, direction);
   renderLabels();
@@ -357,8 +394,22 @@ renderLabels();
 setOutput('');
 buildEngine();
 
+talk = initTalk({
+  getTranslator: () => engine?.translator ?? null,
+  getSpeak: () => settings.speak,
+  setSpeak: (value) => {
+    settings = { ...settings, speak: value };
+    if (!store.save(settings)) storageFailed = true;
+  },
+  onNeedKey: () => {
+    showNoKeyNotice();
+    openSettings();
+  },
+});
+renderView();
+
 if (settings.apiKey) {
-  el.source.focus();
+  if (settings.view === 'type') el.source.focus();
 } else {
   showNoKeyNotice();
   openSettings();

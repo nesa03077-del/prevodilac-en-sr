@@ -15,6 +15,8 @@ npm run build && npm run e2e              # provera u pravom pregledaču (lažni
 ANTHROPIC_API_KEY=sk-ant-... npm run smoke  # prava provera prevoda i brzine
 ```
 
+Pogled "Razgovor" radi u Chrome-u i Edge-u (potreban je mikrofon).
+
 Pri prvom otvaranju aplikacija traži Anthropic API ključ. Ključ ostaje samo u vašem
 pregledaču (localStorage) i šalje se samo na api.anthropic.com.
 
@@ -27,6 +29,7 @@ ili effort: `MODEL=claude-sonnet-5-5 EFFORT=low npm run smoke`.
 |---|---|
 | `index.html`, `src/ui/` | Ekran (stranica, stilovi, povezivanje sa jezgrom) |
 | `src/core/models.js`, `settings.js`, `direction.js` | Modeli, podešavanja, natpisi smera |
+| `src/core/speech-recognizer.js`, `speaker.js`, `conversation.js` | Razgovor govorom: prepoznavanje, izgovor, tok razgovora |
 | `src/core/translator.js` | Poziv Claude API-ja, strimovanje, greške |
 | `src/core/live.js` | Prevod dok se kuca/govori (debounce, prekid starih zahteva) |
 | `src/core/detect.js` | Prepoznaje da li je tekst engleski ili srpski |

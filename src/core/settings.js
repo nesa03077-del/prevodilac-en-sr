@@ -6,11 +6,14 @@ import { DEFAULT_MODEL_ID, MODELS } from './models.js';
 
 export const STORAGE_KEY = 'prevodilac.podesavanja.v1';
 export const MODES = ['auto', 'en-sr', 'sr-en'];
+export const VIEWS = ['type', 'talk'];
 
 export const DEFAULT_SETTINGS = Object.freeze({
   apiKey: '',
   model: DEFAULT_MODEL_ID,
   mode: 'auto',
+  view: 'type',
+  speak: true, // izgovaraj prevod u razgovoru
 });
 
 /** Čisti učitane vrednosti: nepoznat model ili smer vraćamo na podrazumevani. */
@@ -20,6 +23,8 @@ export function normalizeSettings(raw) {
     apiKey: typeof s.apiKey === 'string' ? s.apiKey.trim() : DEFAULT_SETTINGS.apiKey,
     model: MODELS.some((m) => m.id === s.model) ? s.model : DEFAULT_SETTINGS.model,
     mode: MODES.includes(s.mode) ? s.mode : DEFAULT_SETTINGS.mode,
+    view: VIEWS.includes(s.view) ? s.view : DEFAULT_SETTINGS.view,
+    speak: typeof s.speak === 'boolean' ? s.speak : DEFAULT_SETTINGS.speak,
   };
 }
 

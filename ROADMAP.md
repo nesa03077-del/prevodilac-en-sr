@@ -44,11 +44,27 @@ Claude API-ja; srpski prevod uvek latinicom; zaseban repo `prevodilac-en-sr`.
 - Nije provereno: pravi odgovori Sonnet 5.5 i Haiku 4.5 (`npm run smoke` nije pokrenut,
   nema ključa u okruženju). Haiku je najrizičniji jer ne prima parametre kao Opus/Sonnet
 
-## [ ] Korak 3 - Režim razgovora (govor)
+## [x] Korak 3 - Režim razgovora (govor)
 
-- Dva dugmeta: "Engleski govori" / "Srpski govori" (skil `prevodilac-govor`)
-- Prevod dok osoba govori, izgovor konačnog prevoda, istorija razgovora kao kontekst
-- Rad bez podrške za govor: jasna poruka, kucanje i dalje radi
+- Pogled "Razgovor" pored "Kucanje" (`src/ui/talk.js`): dugmad "Engleski govori" / "Srpski govori",
+  smer je zadat dugmetom, pritisak drugog dugmeta menja govornika, ponovni pritisak zaustavlja
+- Prevod uživo dok osoba govori (isprekidan okvir), završena rečenica postaje stavka razgovora;
+  istorija (poslednjih 6 rečenica) ide modelu kao kontekst za rod i izraze
+- Izgovor prevoda na jeziku sagovornika (srpski glas, uz hrvatski/bosanski kao rezervu);
+  mikrofon je pauziran dok se izgovara, pa se sam vraća; prekidač "Izgovaraj prevod" je zapamćen
+- Srpski govor se uvek prikazuje latinicom (i kad pregledač vrati ćirilicu)
+- Mikrofon se gasi pri prelasku na kucanje i kad stranica nije vidljiva
+- Jasne poruke: mikrofon nije dozvoljen / nije pronađen, nema mreže, pregledač bez govora
+  (kucanje i dalje radi), nema srpskog glasa (prevod se samo prikazuje)
+- Jezgro bez DOM-a: `speech-recognizer.js` (ponovno pokretanje, zaštita od petlje),
+  `speaker.js` (izbor glasa, red izgovora), `conversation.js` (tok razgovora)
+- Provera: 135 testova (lažni SpeechRecognition i speechSynthesis) i 98 provera u Chromium-u
+  (`npm run e2e`), uključujući lažni mikrofon; snimci razgovora na 390 i 1280 px
+- Nije provereno (ne može automatski): pravi mikrofon i pravi glasovi. Pogledati listu u
+  skilu `prevodilac-govor` ("Ručna provera na telefonu"). Pravi odgovori Claude-a (`npm run smoke`)
+  još nisu pokrenuti, nema ključa u okruženju
+- Poznata ograničenja: Firefox nema prepoznavanje govora; Chrome šalje zvuk svom servisu za
+  prepoznavanje; na nekim telefonima nema srpskog glasa
 
 ## [ ] Korak 4 - PWA
 

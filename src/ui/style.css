@@ -209,3 +209,69 @@ dialog::backdrop { background: rgb(8 12 16 / 0.55); }
 
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .actions .spacer { flex: 1; }
+
+/* Pogledi: kucanje / razgovor */
+.views { align-self: flex-start; }
+.view { display: flex; flex-direction: column; gap: 0.75rem; flex: 1; min-height: 0; }
+.view[hidden] { display: none; }
+
+/* Razgovor */
+.status { margin: 0; min-height: 1.5rem; color: var(--muted); font-size: 0.9375rem; }
+
+.log {
+  list-style: none; margin: 0; padding: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.65rem;
+  flex: 1 1 auto; min-height: 16rem; max-height: calc(100dvh - 18rem);
+  overflow-y: auto; overscroll-behavior: contain;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.log[data-empty="true"]::before {
+  content: attr(data-placeholder); margin: auto; padding: 1rem; max-width: 28rem;
+  text-align: center; color: var(--muted);
+}
+
+.turn {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  max-width: min(34rem, 90%); padding: 0.6rem 0.85rem; border-radius: 14px;
+}
+.turn.from-en { align-self: flex-start; background: var(--bg); border-top-left-radius: 4px; }
+.turn.from-sr { align-self: flex-end; background: var(--accent-soft); border-top-right-radius: 4px; }
+.turn.live { outline: 1px dashed var(--line); outline-offset: -1px; opacity: 0.9; }
+.turn[data-status="error"] { outline: 1px solid var(--danger); outline-offset: -1px; }
+.turn .who {
+  font-size: 0.75rem; font-weight: 650; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+}
+.turn p { margin: 0; overflow-wrap: anywhere; }
+.turn .src { color: var(--muted); font-size: 0.9375rem; }
+.turn .tr { font-size: 1.1875rem; line-height: 1.45; }
+.turn .tr.pending { color: var(--muted); }
+.turn .err { color: var(--danger); font-size: 0.875rem; }
+
+.talk-bar {
+  position: sticky; bottom: max(0.5rem, env(safe-area-inset-bottom));
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+}
+.talk-btn {
+  display: flex; align-items: center; gap: 0.65rem; min-height: 4rem;
+  padding: 0.5rem 0.9rem; text-align: left;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 14px;
+}
+.talk-btn strong { display: block; font-size: 1.0625rem; }
+.talk-btn small { display: block; font-size: 0.8125rem; color: var(--muted); }
+.talk-btn .dot { flex: none; width: 0.85rem; height: 0.85rem; border-radius: 50%; background: var(--line); }
+.talk-btn:hover:not(:disabled) { border-color: var(--accent); }
+.talk-btn.on { border-color: var(--accent); background: var(--accent-soft); }
+.talk-btn.on .dot { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.talk-btn.on.paused .dot { background: var(--muted); animation: none; }
+@keyframes pulse { 50% { transform: scale(1.4); opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .talk-btn.on .dot { animation: none; } }
+@media (max-width: 420px) {
+  .talk-btn { padding: 0.5rem 0.6rem; gap: 0.45rem; }
+  .talk-btn strong { font-size: 0.9375rem; white-space: nowrap; }
+  .talk-btn small { font-size: 0.75rem; }
+}
+
+.talk-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.check { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.5rem; cursor: pointer; }
+.check input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }

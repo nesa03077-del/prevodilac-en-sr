@@ -89,6 +89,59 @@ async function fakeApi(route) {
   return route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse(chunks) });
 }
 
+
+// ---------- lažni govor (pravi mikrofon se ne može automatski testirati) ----------
+
+const FAKE_SPEECH = `
+(() => {
+  const recs = [];
+  window.__recs = recs;
+  class FakeRec {
+    constructor() { recs.push(this); this.started = false; this.aborted = false; this.stopped = false; }
+    start() { this.started = true; }
+    stop() { this.stopped = true; setTimeout(() => this.onend && this.onend(), 0); }
+    abort() { this.aborted = true; }
+  }
+  window.SpeechRecognition = FakeRec;
+  window.webkitSpeechRecognition = FakeRec;
+  const active = () => recs.filter((r) => r.started && !r.aborted && !r.stopped);
+  window.__active = () => active().length;
+  window.__emit = (results, idx = 0) => {
+    const r = active().at(-1);
+    r.onresult({ resultIndex: idx, results: results.map(([t, f]) => Object.assign([{ transcript: t }], { isFinal: f })) });
+  };
+  window.__fail = (error) => { active().at(-1).onerror({ error }); };
+  const spoken = [];
+  window.__spoken = spoken;
+  window.__speaking = false;
+  const synth = {
+    getVoices: () => [{ lang: 'en-US', name: 'E' }, { lang: 'sr-RS', name: 'S' }],
+    speak(u) { spoken.push({ text: u.text, lang: u.lang }); window.__speaking = true; setTimeout(() => { window.__speaking = false; u.onend && u.onend(); }, 400); },
+    cancel() {}, resume() {}, addEventListener() {}, removeEventListener() {},
+  };
+  Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
+  window.SpeechSynthesisUtterance = class { constructor(t) { this.text = t; } };
+})();
+`;
+
+const NO_SPEECH = `
+delete window.SpeechRecognition;
+delete window.webkitSpeechRecognition;
+`;
+
+const seedSettings = (overrides = {}) => {
+  const value = { apiKey: FAKE_KEY, model: 'claude-opus-5-5', mode: 'auto', view: 'type', speak: true, ...overrides };
+  return `localStorage.setItem('prevodilac.podesavanja.v1', ${JSON.stringify(JSON.stringify(value))});`;
+};
+
+async function talkPage(opts = {}, { speech = FAKE_SPEECH, view = 'type', key = true } = {}) {
+  const t = await newPage(opts);
+  await t.context.addInitScript(speech);
+  if (key) await t.context.addInitScript(seedSettings({ view }));
+  await t.page.goto(origin);
+  return t;
+}
+
 // ---------- mali okvir za provere ----------
 
 let failed = 0;
@@ -260,6 +313,98 @@ try {
   check('nema grešaka u konzoli (uključujući CSP)', problems.length === 0, problems.join(' | '));
   await context.close();
 
+
+  // ===== 13. Razgovor govorom =====
+  console.log('13. Razgovor govorom');
+  {
+    apiCalls.length = 0;
+    const t = await talkPage();
+    const p = t.page;
+    await p.click('label[for=view-talk]');
+    check('razgovor je prikazan, kucanje sakriveno', (await p.locator('#talking').isVisible()) && (await p.locator('#typing').isHidden()));
+    check('izbor pogleda je zapamćen', (await p.evaluate(() => JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1')).view)) === 'talk');
+    check('početni status', (await text(p, '#talk-status')) === 'Pritisnite dugme i govorite.');
+
+    await p.click('.talk-btn[data-lang=en]');
+    check('slušanje počinje na engleskom (en-US)', await p.evaluate(() => window.__recs.at(-1).lang === 'en-US' && window.__recs.at(-1).started));
+    check('dugme je pritisnuto', (await p.locator('.talk-btn[data-lang=en]').getAttribute('aria-pressed')) === 'true');
+    check('status: govorite engleski', (await text(p, '#talk-status')) === 'Slušam: govorite engleski.');
+
+    await p.evaluate(() => window.__emit([['where is the nearest', false]]));
+    check('delimičan tekst se odmah vidi', await p.waitForFunction(() => document.querySelector('.turn.live .src')?.textContent === 'where is the nearest', null, { timeout: 3000 }).then(() => true, () => false));
+    check('delimičan tekst se prevodi uživo', await p.waitForFunction(() => document.querySelector('.turn.live .tr')?.textContent === 'Zdravo svete', null, { timeout: 4000 }).then(() => true, () => false));
+
+    await p.evaluate(() => window.__emit([['where is the nearest pharmacy', true]]));
+    check('konačna rečenica postaje stavka razgovora', await p.waitForFunction(() => document.querySelector('.turn.from-en:not(.live) .tr')?.textContent === 'Zdravo svete', null, { timeout: 4000 }).then(() => true, () => false));
+    check('delimični prikaz nestaje', (await p.locator('.turn.live').count()) === 0);
+    check('prevod se izgovara srpskim glasom', await p.waitForFunction(() => window.__spoken.length === 1 && window.__spoken[0].lang === 'sr-RS' && window.__spoken[0].text === 'Zdravo svete', null, { timeout: 4000 }).then(() => true, () => false));
+    check('dok se izgovara, mikrofon je pauziran', await p.waitForFunction(() => window.__speaking && window.__active() === 0, null, { timeout: 3000 }).then(() => true, () => false));
+    check('dok se izgovara, status to kaže', (await text(p, '#talk-status')) === 'Izgovaram prevod…');
+    check('posle izgovora mikrofon se vraća', await p.waitForFunction(() => !window.__speaking && window.__active() === 1, null, { timeout: 4000 }).then(() => true, () => false));
+
+    // srpski govornik, ćirilica
+    await p.click('.talk-btn[data-lang=sr]');
+    check('dugme za srpski prekida engleski i sluša srpski (sr-RS)', await p.evaluate(() => window.__recs.at(-1).lang === 'sr-RS' && window.__active() === 1));
+    check('engleski dugme više nije pritisnuto', (await p.locator('.talk-btn[data-lang=en]').getAttribute('aria-pressed')) === 'false');
+    apiCalls.length = 0;
+    await p.evaluate(() => window.__emit([['Где је апотека?', true]]));
+    check('ćirilični govor se prikazuje latinicom', await p.waitForFunction(() => [...document.querySelectorAll('.turn.from-sr .src')].some((e) => e.textContent === 'Gde je apoteka?'), null, { timeout: 4000 }).then(() => true, () => false));
+    await waitCalls(1);
+    const second = apiCalls.find((c) => c.source === 'Gde je apoteka?');
+    check('smer je srpski -> engleski', Boolean(second?.body.system.includes('from Serbian into English')));
+    check('prethodna rečenica ide kao kontekst', Boolean(second?.body.messages[0].content.includes('<context>\nwhere is the nearest pharmacy\n</context>')));
+    check('prevod se izgovara engleskim glasom', await p.waitForFunction(() => window.__spoken.length === 2 && window.__spoken[1].lang === 'en-US' && window.__spoken[1].text === 'Hello world', null, { timeout: 4000 }).then(() => true, () => false));
+    await p.waitForFunction(() => !window.__speaking, null, { timeout: 4000 });
+
+    // isključen izgovor
+    await p.uncheck('#speak-toggle');
+    check('prekidač izgovora je zapamćen', (await p.evaluate(() => JSON.parse(localStorage.getItem('prevodilac.podesavanja.v1')).speak)) === false);
+    await p.evaluate(() => window.__emit([['Hvala', true]]));
+    await p.waitForFunction(() => [...document.querySelectorAll('.turn .src')].some((e) => e.textContent === 'Hvala'), null, { timeout: 4000 });
+    await p.waitForTimeout(700);
+    check('sa isključenim izgovorom ništa se ne izgovara', (await p.evaluate(() => window.__spoken.length)) === 2);
+    check('sa isključenim izgovorom mikrofon ostaje uključen', (await p.evaluate(() => window.__active())) === 1);
+
+    // greška mikrofona
+    await p.evaluate(() => window.__fail('not-allowed'));
+    check('odbijen mikrofon daje poruku', (await text(p, '#talk-alert')).includes('Mikrofon nije dozvoljen'));
+    check('slušanje je zaustavljeno', (await p.locator('.talk-btn.on').count()) === 0);
+
+    // brisanje razgovora
+    check('Obriši razgovor je uključeno', await p.locator('#talk-clear').isEnabled());
+    await p.click('#talk-clear');
+    check('razgovor je prazan', (await p.locator('.turn').count()) === 0 && (await p.locator('#talk-clear').isDisabled()));
+
+    // napuštanje pogleda gasi mikrofon
+    await p.click('.talk-btn[data-lang=en]');
+    check('slušanje ponovo radi posle greške', (await p.evaluate(() => window.__active())) === 1);
+    await p.click('label[for=view-type]');
+    check('prelazak na kucanje gasi mikrofon', (await p.evaluate(() => window.__active())) === 0);
+    check('nema grešaka u konzoli (razgovor)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+  }
+
+  console.log('14. Razgovor: pregledač bez govora, bez ključa');
+  {
+    const t = await talkPage({}, { speech: NO_SPEECH, view: 'talk' });
+    const p = t.page;
+    check('poruka da pregledač ne podržava govor', (await text(p, '#talk-unsupported')).includes('ne podržava prepoznavanje govora'));
+    check('dugmad za govor su isključena', (await p.locator('.talk-btn[data-lang=en]').isDisabled()) && (await p.locator('.talk-btn[data-lang=sr]').isDisabled()));
+    await p.click('label[for=view-type]');
+    await p.fill('#source', 'Hello there');
+    check('kucanje radi i bez govora', await waitOutput(p, 'Zdravo svete'));
+    check('nema grešaka u konzoli (bez govora)', t.problems.length === 0, t.problems.join(' | '));
+    await t.context.close();
+
+    const k = await talkPage({}, { key: false });
+    await k.page.click('#settings-cancel'); // bez ključa se dijalog sam otvara
+    await k.page.click('label[for=view-talk]');
+    await k.page.click('.talk-btn[data-lang=en]');
+    check('bez ključa dugme otvara podešavanja', await k.page.locator('#settings').evaluate((d) => d.open));
+    check('bez ključa mikrofon se ne pokreće', (await k.page.evaluate(() => window.__active())) === 0);
+    await k.context.close();
+  }
+
   // ===== 12. Snimci ekrana =====
   console.log('12. Snimci ekrana');
   const sizes = [
@@ -285,6 +430,29 @@ try {
       }
       check(`${name}/${scheme}: nema grešaka u konzoli`, s.problems.length === 0, s.problems.join(' | '));
       await s.context.close();
+    }
+  }
+
+  // snimci razgovora
+  for (const scheme of ['light', 'dark']) {
+    for (const [name, viewport] of sizes) {
+      const t = await talkPage({ viewport, colorScheme: scheme, deviceScaleFactor: 2 }, { view: 'talk' });
+      const p = t.page;
+      await p.click('.talk-btn[data-lang=en]');
+      await p.evaluate(() => window.__emit([['Where is the nearest pharmacy? My daughter has a fever.', true]]));
+      await p.waitForFunction(() => window.__speaking === false && window.__spoken.length === 1, null, { timeout: 4000 });
+      await p.waitForFunction(() => !window.__speaking, null, { timeout: 4000 });
+      await p.click('.talk-btn[data-lang=sr]');
+      await p.evaluate(() => window.__emit([['Gde je apoteka?', true]]));
+      await p.waitForFunction(() => window.__spoken.length === 2, null, { timeout: 4000 });
+      await p.waitForFunction(() => !window.__speaking, null, { timeout: 4000 });
+      await p.evaluate(() => window.__emit([['hvala puno', false]]));
+      await p.waitForFunction(() => document.querySelector('.turn.live .tr')?.textContent === 'Hello world', null, { timeout: 4000 });
+      const noOverflow = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      check(`razgovor ${name}/${scheme}: nema vodoravnog pomeranja`, noOverflow);
+      await p.screenshot({ path: path.join(shotsDir, `razgovor-${name}-${scheme}.png`), fullPage: true });
+      check(`razgovor ${name}/${scheme}: nema grešaka u konzoli`, t.problems.length === 0, t.problems.join(' | '));
+      await t.context.close();
     }
   }
 } catch (err) {
