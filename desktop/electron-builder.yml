@@ -21,4 +21,6 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false
-artifactName: Prevodilac-${version}-${arch}.${ext}
+  artifactName: Prevodilac-Instalacija-${version}.${ext}
+portable:
+  artifactName: Prevodilac-Prenosiva-${version}.${ext}
